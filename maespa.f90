@@ -1,4 +1,14 @@
-PROGRAM maespa
+Program maespa
+Use Initialize, only: maespa_initialize
+Implicit None
+
+call maespa_initialize
+
+call run_maespa
+
+End Program maespa
+
+subroutine run_maespa
     ! =======================================================
     !  MAESPA: Version 2013
     !  For more information see www.bio.mq.edu.au/maespa 
@@ -38,127 +48,16 @@ PROGRAM maespa
     USE switches
     USE metcom
     USE maestcom
-    
     USE maindeclarations
     
     IMPLICIT NONE
     REAL, EXTERNAL :: AVERAGEVAL,CALCRMW,TK,ETCAN,RESP,GRESP
-    
-    VTITLE = 'MAESPA: version May 2013'
-    VTITLE = VTITLE(1:LEN_TRIM(VTITLE))
-   
-    ! Set program flag
-    IPROG = INORMAL
-    IPROGUS = ITEST  ! Understorey setting.
-    
-    ! Did MGDK add these? Are they needed?
-    USEMEASSW = 0
-    SOILDATA = 0
-    
-    ! Temporary stuff ... will go into respiratory T acclimation routines.
-    TAIRMEM = -999.99 ! All array elements...
-    NTAIRADD = 0
-    
-    ! Set all the defaults stuff up
-    CALL default_conditions(in_path, out_path)
-   
-    ! Open input files
-    CALL OPENINPUTF(CTITLE,TTITLE,PTITLE,STITLE,WTITLE,UTITLE,IWATFILE, &
-                    KEEPZEN,IUSTFILE,in_path,out_path)
-   
-    ! Decide whether to simulate the water balance (MAESPA) or not (MAESTRA)    
-    IF(IWATFILE .EQ. 0)THEN
-       ISMAESPA = .FALSE.
-    ELSE
-       ISMAESPA = .TRUE.
-    ENDIF
-    
-    ! Get input from control file
-    CALL INPUTCON(ISTART, IEND, NSTEP,NUMPNT, NOLAY, PPLAY, NZEN, DIFZEN, NAZ,      &
-                    MODELGS, MODELJM, MODELRD, MODELSS, MODELRW, ITERMAX, IOHIST,   &
-                    BINSIZE,ICC, CO2INC, TINC,IOTC, TOTC, WINDOTC, PAROTC,          &
-                    FBEAMOTC, IWATFILE, IUSTFILE, ISIMUS, NSPECIES, SPECIESNAMES,   &
-                    PHYFILES, STRFILES )
-    
-    ! Get input from canopy structure file
-    CALL INPUTSTR(NSPECIES,STRFILES,JLEAFSPEC,BPTTABLESPEC,RANDOMSPEC,NOAGECSPEC,    &
-                    JSHAPESPEC,SHAPESPEC,EXTWINDSPEC,NALPHASPEC,ALPHASPEC,      &
-                    FALPHATABLESPEC,COEFFTSPEC,EXPONTSPEC,WINTERCSPEC,BCOEFFTSPEC,   &
-                    BEXPONTSPEC,BINTERCSPEC,RCOEFFTSPEC,REXPONTSPEC,RINTERCSPEC,&
-                    FRFRACSPEC,in_path,DATESLIA,NOLIADATES,DATESLAD,NOLADDATES)
-    
-    ! Get input from physiology file
-    CALL INPUTPHY(NSPECIES,PHYFILES,MODELJM,MODELRD,MODELGS,MODELRW,NOLAY,NOAGECSPEC,           &
-                    NOAGEPSPEC,PROPCSPEC,PROPPSPEC,ABSRPSPEC,ARHOSPEC,ATAUSPEC,RHOSOLSPEC,      &
-                    JMAXTABLESPEC,DATESJSPEC,NOJDATESSPEC,IECOSPEC,EAVJSPEC,EDVJSPEC,           &
-                    DELSJSPEC,THETASPEC,VCMAXTABLESPEC,DATESVSPEC,NOVDATESSPEC,EAVCSPEC,        &
-                    EDVCSPEC,DELSCSPEC,TVJUPSPEC,TVJDNSPEC,SLATABLESPEC,DATESSLASPEC,           &
-                    NOSLADATESSPEC,NOADATESSPEC,DATESASPEC,AJQTABLESPEC,RDTABLESPEC,            &
-                    DATESRDSPEC,NORDATESSPEC,RTEMPSPEC,DAYRESPSPEC,TBELOWSPEC,EFFYRWSPEC,       &
-                    RMWSPEC,RTEMPWSPEC,COLLASPEC,COLLKSPEC,STEMSDWSPEC,RMWAREASPEC,STEMFORMSPEC,&
-                    NOFQDATESSPEC,DATESFQSPEC,Q10FTABLESPEC,K10FSPEC,NOWQDATESSPEC,DATESWQSPEC, &
-                    Q10WTABLESPEC,RMFRSPEC,RMCRSPEC,Q10RSPEC,RTEMPRSPEC,EFFYRFSPEC,RMBSPEC,     &
-                    Q10BSPEC,RTEMPBSPEC,GSREFSPEC,GSMINSPEC,PAR0SPEC,D0SPEC,VK1SPEC,VK2SPEC,    &
-                    VPD1SPEC,VPD2SPEC,VMFD0SPEC,GSJASPEC,GSJBSPEC,T0SPEC,TREFSPEC,TMAXSPEC,     &
-                    SMD1SPEC,SMD2SPEC,WC1SPEC, WC2SPEC,SWPEXPSPEC,G0TABLESPEC,G1TABLESPEC,      &
-                    GKSPEC,NOGSDATESSPEC,DATESGSSPEC,D0LSPEC,GAMMASPEC,VPDMINSPEC,WLEAFTABLESPEC,DATESWLEAFSPEC,NOWLEAFDATESSPEC,NSIDESSPEC,           &
-                    SFSPEC,PSIVSPEC,VPARASPEC,VPARBSPEC,VPARCSPEC,VFUNSPEC,in_path)
-    
-    ! Cannot use Tuzet with MAESTRA (because plantk is in watpars.dat!)
-    IF(.NOT.ISMAESPA.AND.MODELGS.EQ.6)THEN
-        CALL SUBERROR('Error: Cannot use Tuzet model in MAESTRA. Use MAESPA!', IFATAL, 0)
-    ENDIF
-    
-    ! Get input from trees file
-    CALL INPUTTREE(XSLOPE,YSLOPE,BEAR,X0,Y0,XMAX,YMAX,PLOTAREA,STOCKING,ZHT,Z0HT,ZPD, &
-                    NOALLTREES,NOTREES,NOTARGETS,ITARGETS,SHADEHT,NOXDATES, &
-                    NOYDATES,NOZDATES,NOTDATES,NOLADATES,NODDATES,DATESX,   &
-                    DATESY,DATESZ,DATEST,DATESLA,DATESD,DXT1,DYT1,DZT1,     &
-                    RXTABLE1,RYTABLE1,RZTABLE1,ZBCTABLE1,FOLTABLE1,         &
-                    TOTLAITABLE,DIAMTABLE1,IFLUSH,DT1,DT2,DT3,DT4,EXPTIME,  &
-                    APP,EXPAN,WEIGHTS,NSPECIES,ISPECIES)
-    
-    ! Get input from the water balance file
-    IF(ISMAESPA)THEN
-        CALL INPUTWATBAL(BPAR, PSIE, KSAT, ROOTRESIST, ROOTRESFRAC, ROOTRADTABLE, ROOTDENSTABLE,ROOTMASSTOTTABLE,              &
-                        MINROOTWP,MINLEAFWP,PLANTKTABLE,KSCALING,THROUGHFALL,REASSIGNRAIN,RUTTERB,RUTTERD, MAXSTORAGE, &
-                        DRAINLIMIT,ROOTXSECAREA,EQUALUPTAKE,NLAYER, NROOTLAYER, LAYTHICK, INITWATER,    & 
-                        FRACROOTTABLE, POREFRAC, SOILTEMP, KEEPWET,DRYTHICKMIN,TORTPAR, SIMTSOIL,RETFUNCTION,&
-                        FRACORGANIC, EXPINF, WSOILMETHOD, USEMEASET,USEMEASSW,SIMSOILEVAP,USESTAND,ALPHARET,WS,WR,NRET,&
-                        DATESKP,NOKPDATES,DATESROOT,NOROOTDATES)
-    ENDIF
-    
-    ! Open met data file (must be done after ISTART & IEND read)
-    CALL OPENMETF(ISTART,IEND,CAK,PRESSK,SWMIN,SWMAX,USEMEASET,DIFSKY,ALAT,TTIMD,DELTAT,&
-                    MFLAG,METCOLS,NOMETCOLS,MTITLE,MSTART,in_path)
-    
-    ! Open output files
-    CALL open_output_files(ISIMUS,CTITLE,TTITLE,PTITLE,STITLE,MTITLE,VTITLE,WTITLE,NSPECIES,SPECIESNAMES,out_path,ISMAESPA)
-    
-    
-    IF(ISIMUS.EQ.1)THEN
-        CALL INPUTUSSTR(NOUSPOINTS,X0,Y0,GRDAREAI,XLU,YLU,ZLU,USLAITAB,NOFUDATES,DATESFU,&
-                        HTUS,NOHUDATES,DATESHU,FOLNUS,NONUDATES,DATESNU,EXTKUS)
-        
-        CALL INPUTUSPHY(JMAXN25,IECOU,EAVJU,EDVJU,DELSJU,TVJUPU,TVJDNU,VCMAXN25,EAVCU,  &
-                        EDVCU,DELSCU,UNMIN,AJQU,ABSRPU,GSBG0U,GSBG1U,CICARAT,RD0US,RDK,   &
-                        RDT,SLAUS,EFFY,MOSS,JMAX25M,VCMAX25M,THETAM)
-    ENDIF
-    
-    ! Initialize various variables related to water balance calculations.
-    IF(ISMAESPA)THEN
-    CALL INITWATBAL(LAYTHICK,WETTINGBOT,WETTINGTOP,POREFRAC,WATERGAIN,WATERLOSS,PPTGAIN,    &
-                    INITWATER,DRYTHICKMIN,DRYTHICK,CANOPY_STORE,SURFACE_WATERMM,FRACWATER,  &
-                    WSOIL,WSOILROOT,NLAYER,NROOTLAYER,ICEPROP,QE,RUNOFF,OUTFLOW,SOILDEPTH,  &
-                    SOILDATA,USEMEASSW)
-    ENDIF
 
     !***********************************************************************!
     !                       Begin daily loop                                !
     !***********************************************************************!
     
-    ! Initialize met file
-    CALL RESTARTMETF(ISTART,MSTART,MFLAG)
+
     
     IDAY = 0
     DO WHILE (ISTART + IDAY <= IEND)
@@ -1226,7 +1125,7 @@ PROGRAM maespa
     
     CALL CLOSEF()
         
-END PROGRAM MAESPA
+END subroutine run_MAESPA
 !**********************************************************************
 
 
