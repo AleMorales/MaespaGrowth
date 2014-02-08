@@ -7,7 +7,13 @@ call maespa_initialize
 
 IDAY = 0
 DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
-
+! Override the dimensions of all the trees in the orchard
+    RYTABLE1(1,:) = 0.37050426492714 ! Radius of green crown in y direction
+    RXTABLE1(1,:) = 0.37050426492714 ! Radius of green crown in x direction
+    RZTABLE1(1,:) = 0.852159809332423 ! Diameter of green crown in z direction   
+    FOLTABLE1(1,:) = 0.49 ! Total leaf area of a crown
+    ZBCTABLE1(1,:) = 0.5 ! Trunk height (i.e. from groun to first green branch)
+! Calculate photosynthesis
     call run_maespa
 
     IDAY = IDAY + NSTEP
@@ -417,11 +423,11 @@ subroutine run_maespa
         DO IHOUR = 1,KHRS
             
             CALL ZEROFSOIL(FSOIL1,NSUMMED,TOTTMP)
-            
+
             ! Loop over all chosen trees within subplot
             DO ITAR = 1,NOTARGETS
                 ITREE = ITARGETS(ITAR)
-                
+
                 ! Read diffuse transmittance from precalculated array
                 TU(1:NUMPNT) = TUAR(ITAR, 1:NUMPNT)
                 TD(1:NUMPNT) = TDAR(ITAR, 1:NUMPNT)
@@ -550,7 +556,7 @@ subroutine run_maespa
                 CALL SORTTREES(NOALLTREES,NOTREES,ITREE,DXT1,DYT1,DZT1,RXTABLE1,RYTABLE1,RZTABLE1,ZBCTABLE1,&
                                 FOLTABLE1,DIAMTABLE1,DXT,DYT,DZT,RXTABLE,RYTABLE,RZTABLE,FOLTABLE,ZBCTABLE, &
                                 DIAMTABLE,ISPECIES,ISPECIEST,IT)
-                
+               
                 DO I = 1,NOTREES
                     JSHAPET(I) = JSHAPESPEC(ISPECIEST(I))
                     SHAPET(I) = SHAPESPEC(ISPECIEST(I))
@@ -574,7 +580,7 @@ subroutine run_maespa
                                     NOLADATES,DATESLA,FOLTABLE,TOTLAITABLE,NOTREES,RX,RY,RZ,ZBC,FOLT,           &
                                     TOTLAI,DIAM,STOCKING,IFLUSH,DT1,DT2,DT3,DT4,EXPTIME,APP,EXPAN,NEWCANOPY,    &
                                     CANOPYDIMS)
-            
+
                 CALL POINTSNEW(NOLAY,PPLAY,JLEAF,JSHAPE,SHAPE,RX(1),RY(1),RZ(1),ZBC(1),DXT(1),DYT(1),&
                                 DZT(1),FOLT(1),PROPC,PROPP,BPT,NOAGECT(1),NOAGEP,XL,YL,ZL,VL,DLT,DLI,&
                                 LGP,FOLLAY)          
