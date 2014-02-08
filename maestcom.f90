@@ -116,7 +116,7 @@ MODULE maestcom
     INTEGER, PARAMETER :: USUNLA = 49    ! modification Mathias 27/11/12
     INTEGER, PARAMETER :: USWPLAY = 50    ! modification Mathias décembre 2012
     INTEGER, PARAMETER :: UGROWTH = 51  ! modification A. Morales February 2014    
-    
+    Integer, Parameter :: out_growth = 52
 
     ! Flags passed to error handling subroutine
     INTEGER, PARAMETER :: IFATAL = 100        ! Error was fatal - stop program

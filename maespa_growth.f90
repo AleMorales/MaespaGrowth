@@ -1,27 +1,13 @@
-Program carbon_balance
-Use growth_module
-Implicit None
-
-
-call read_growth_inputs
-
-write(*,*) OptPrun
-write(*,*) DOYPhen2
-write(*,*) RmRef_stem, Wleaf
-write(*,*) DensOpt
-
-
-End Program carbon_balance
-
-
-
-subroutine maespa_growth
+Program maespa_growth
 Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations ! This contains all variables that were defined in the program unit of maespa.
+Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
 call maespa_initialize
+! This reads all the input files for the growth equations
+call read_growth_inputs
 
 ! The daily loop and its variables (Istart, Iday, Iend) correspond to the original daily loop in Maestra
 IDAY = 0
@@ -50,8 +36,14 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         
 END DO ! End daily loop
 
+write(*,*) OptPrun
+write(*,*) DOYPhen2
+write(*,*) RmRef_stem, Biomass_leaf
+write(*,*) DensOpt
+
 ! This closes files and does other finalization operations. It corresponds to the all the code that appear after the daily loop in maespa
 call maespa_finalize
+call growth_finalize
 
-end subroutine maespa_growth
+End Program maespa_growth
 
