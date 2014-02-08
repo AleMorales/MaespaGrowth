@@ -1,11 +1,21 @@
 Program maespa
 Use Initialize, only: maespa_initialize, maespa_finalize
+USE maindeclarations
 Implicit None
 
 call maespa_initialize
 
-call run_maespa
+IDAY = 0
+DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 
+    call run_maespa
+
+    IDAY = IDAY + NSTEP
+    IF ((ISTART+IDAY) <= IEND) THEN
+        CALL SKIPMET(MFLAG,NSTEP)
+    END IF
+        
+END DO ! End daily loop
 
 call maespa_finalize
 
@@ -61,9 +71,7 @@ subroutine run_maespa
     !***********************************************************************!
     
 
-    
-    IDAY = 0
-    DO WHILE (ISTART + IDAY <= IEND)
+
         !WRITE(*,105) IDAY
         !105 FORMAT('  DAY:',I5)
        
@@ -1107,13 +1115,6 @@ subroutine run_maespa
             CALL OUTPUTUS(IDAY+1,NOUSPOINTS,XLU,YLU,ZLU,UIBEAM,UIDIFF,PARUS,APARUS,PSUS,ETUS)
         ENDIF
 
-        ! Go to next day of simulation
-        IDAY = IDAY + NSTEP
-        IF ((ISTART+IDAY) <= IEND) THEN
-            CALL SKIPMET(MFLAG,NSTEP)
-        END IF
-        
-    END DO ! End daily loop
     !**********************************************************************
         
 END subroutine run_MAESPA
