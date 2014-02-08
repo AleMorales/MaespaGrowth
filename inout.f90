@@ -5070,7 +5070,7 @@ END SUBROUTINE open_file
     IMPLICIT NONE
     
     REAL, intent(out) :: c, taun, p1, p2, Ik
-    INTEGER, intent(out) :: OpMie, OpRayleigh, OpEphrat, OpSpitters
+    INTEGER, intent(out) :: OpMie, OpRayleigh, OpEphrat, OpSpitters ! Why are these arguments to the function and in the namelist?
     INTEGER :: IOERROR
     NAMELIST /OpWeather/ OpEphrat, OpSpitters, OpMie, OpRayleigh    
     NAMELIST /ParWeather/ c, taun, p1, p2, Ik    
