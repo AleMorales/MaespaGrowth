@@ -15,6 +15,10 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     ZBCTABLE1(1,:) = 0.5 ! Trunk height (i.e. from groun to first green branch)
 ! Calculate photosynthesis
     call run_maespa
+! Retrieve daily variables
+    write(*,*) "Daily gross photos is", totCO2(1) + totrespf(1)
+    write(*,*) "Daily respiration is", totrespf(1)
+    write(*,*) "Daily absorbed PAR is", tdyab(1,1)
 
     IDAY = IDAY + NSTEP
     IF ((ISTART+IDAY) <= IEND) THEN
