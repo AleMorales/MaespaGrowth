@@ -1,10 +1,13 @@
 Program maespa
-Use Initialize, only: maespa_initialize
+Use Initialize, only: maespa_initialize, maespa_finalize
 Implicit None
 
 call maespa_initialize
 
 call run_maespa
+
+
+call maespa_finalize
 
 End Program maespa
 
@@ -1112,18 +1115,6 @@ subroutine run_maespa
         
     END DO ! End daily loop
     !**********************************************************************
-
-    IF (IOHIST.EQ.1) CALL OUTPUTHIST(UHIST,HISTO,BINSIZE,NOTARGETS)
-    
-    !**********************************************************************
-    ! Write diffuse transmittances to file
-    REWIND (UTUTD)
-    WRITE (UTUTD,1313) (IPT,TU(IPT),TD(IPT),RELDF(IPT),IPT=1,NUMPNT)
-    1313  FORMAT (1X,I3,5X,F8.4,1X,F8.4,1X,F8.4)
-    
-    CALL SUBERROR('SIMULATION COMPLETED SUCCESSFULLY',IWARN,-1)
-    
-    CALL CLOSEF()
         
 END subroutine run_MAESPA
 !**********************************************************************
