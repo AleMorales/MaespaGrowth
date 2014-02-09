@@ -1,9 +1,9 @@
 Program maespa_growth
 Use Initialize, only: maespa_initialize, maespa_finalize
-USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2 ! This contains all variables that were defined in the program unit of maespa.
+USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD
 Integer          :: Year, Doy, PhenStage
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
@@ -84,7 +84,12 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 
 ! Pool of assimilates produce on a given day
     Assimilation = (totCO2(1) + totRespf(1))/d_alley/d_row*12.0
-    Pool         = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)
+! Maintenance respiration. Temperature factor is the avereage temperature effect over the day
+    Tf           = sum(Q10**((TAIR(1:KHRS) - 25.0)/10.0))/KHRS
+    RmD          = (Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + Biomass_stem*RmRef_stem + Biomass_froots*RmRef_froots + Biomass_croots*RmRef_croots + Biomass_fruits*RmRef_fruits)*Tf*24.0
+    If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres ! Source limitation of photosynthesis 
+    Pool         = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres - RmD
+    !write(*,*) RmD, totRespf(1), LAD*Volume
 
 ! Update the state variables 
     Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf/d_alley/d_row    
