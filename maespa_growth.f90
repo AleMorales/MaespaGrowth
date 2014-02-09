@@ -43,44 +43,47 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     else if(DOY == DOYPhen4) Then
         PhenStage = 1
         Biomass_fruits = 0.0 ! Harvest
-        ! Pruning for high density orchards is always applied but differs when H > Hmax or H <= Hmax
-        if(trim(DensOpt) == 'H') Then
-        ! Prunning may want to control maximum height
-            if(H > Hmax) Then                                                      
+        ! Give the opportunity of not having pruning
+        if(OptPrun == 1) Then
+            ! Pruning for high density orchards is always applied but differs when H > Hmax or H <= Hmax
+            if(trim(DensOpt) == 'H') Then
+            ! Prunning may want to control maximum height
+                if(H > Hmax) Then                                                      
+                    H = Hmax  
+                    Volume = Hmax*Rx*Ry*4.0/3.0/2.0*3.1416
+                    Rx = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_alley/3.0)
+                    Ry = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_row/2.0)                                                   
+                    Volume = Hmax*Rx*Ry*4.0/3.0/2.0*3.1416 ! Because Rx and Ry may be limited by tree spacing  
+                end if
+            ! Calculate LADv and prune LAD if bigger. Use empirical rule from Orgaz et al. (2007)    
+                if(Volume/(D_row*D_alley) < 0.5) then
+                    LADv = 2.0
+                else
+                    LADv = 2.0 - 0.8*(Volume/(d_row*d_alley) - 0.5)/1.5
+                end if      
+                if(LAD > LADv) LAD = LADv              
+            ! Update all state variables and canopy dimensions 
+                LAI = Volume/(d_alley*d_row)*LAD  
+                ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
+                ratio_leaf_stem   =    Biomass_leaf/Biomass_stem 
+                Biomass_leaf = LAI/specific_leaf_area                                                
+                Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
+                Biomass_stem = Biomass_leaf/ratio_leaf_stem      
+            ! Prunning for super-high density orchards only applied when H > Hmax   
+            else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
+            ! Update all state variables and canopy dimensions    
                 H = Hmax  
-                Volume = Hmax*Rx*Ry*4.0/3.0/2.0*3.1416
-                Rx = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_alley/3.0)
-                Ry = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_row/2.0)                                                   
-                Volume = Hmax*Rx*Ry*4.0/3.0/2.0*3.1416 ! Because Rx and Ry may be limited by tree spacing  
+                Volume = Hmax*4.0*Rx*Ry
+                Rx = min((0.125*Volume/cp)**(1.0/3.0), d_alley/3.0)
+                Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)                                                       
+                Volume = Hmax*4.0*Rx*Ry ! Because Rx and Ry may be limited by tree spacing                                                
+                LAI = Volume*LAD/d_alley/d_row 
+                ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
+                ratio_leaf_stem   =    Biomass_leaf/Biomass_stem                                  
+                Biomass_leaf = LAI/specific_leaf_area                                                
+                Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
+                Biomass_stem = Biomass_leaf/ratio_leaf_stem     
             end if
-        ! Calculate LADv and prune LAD if bigger. Use empirical rule from Orgaz et al. (2007)    
-            if(Volume/(D_row*D_alley) < 0.5) then
-                LADv = 2.0
-            else
-                LADv = 2.0 - 0.8*(Volume/(d_row*d_alley) - 0.5)/1.5
-            end if      
-            if(LAD > LADv) LAD = LADv              
-        ! Update all state variables and canopy dimensions 
-            LAI = Volume/(d_alley*d_row)*LAD  
-            ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
-            ratio_leaf_stem   =    Biomass_leaf/Biomass_stem 
-            Biomass_leaf = LAI/specific_leaf_area                                                
-            Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
-            Biomass_stem = Biomass_leaf/ratio_leaf_stem      
-        ! Prunning for super-high density orchards only applied when H > Hmax   
-        else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
-        ! Update all state variables and canopy dimensions    
-            H = Hmax  
-            Volume = Hmax*4.0*Rx*Ry
-            Rx = min((0.125*Volume/cp)**(1.0/3.0), d_alley/3.0)
-            Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)                                                       
-            Volume = Hmax*4.0*Rx*Ry ! Because Rx and Ry may be limited by tree spacing                                                
-            LAI = Volume*LAD/d_alley/d_row 
-            ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
-            ratio_leaf_stem   =    Biomass_leaf/Biomass_stem                                  
-            Biomass_leaf = LAI/specific_leaf_area                                                
-            Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
-            Biomass_stem = Biomass_leaf/ratio_leaf_stem     
         end if
     else
         PhenStage = 1
@@ -150,7 +153,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Assimilation = (totCO2(1) + totRespf(1))/d_alley/d_row*12.0
 ! Maintenance respiration. Temperature factor is the avereage temperature effect over the day
     Tf           = sum(Q10**((TAIR(1:KHRS) - 25.0)/10.0))/KHRS
-    RmD          = (Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + Biomass_stem*RmRef_stem + Biomass_froots*RmRef_froots + Biomass_croots*RmRef_croots + Biomass_fruits*RmRef_fruits)*Tf*24.0
+    RmD          = (Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + Biomass_stem*RmRef_stem + Biomass_froots*RmRef_froots + Biomass_croots*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Tf*24.0
     If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres ! Source limitation of photosynthesis 
     Pool         = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres - RmD
 
