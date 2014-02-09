@@ -3,7 +3,7 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence
 Integer          :: Year, Doy, PhenStage
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
@@ -17,6 +17,18 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 
 ! Determine phenological stage
     DOY = mod(iday, 365)
+    If(DOY == 1) Then
+        Age = Age + 1
+        biomass_leaf2 = biomass_leaf1
+        biomass_leaf2T = biomass_leaf2
+        biomass_leaf1 = biomass_leaf0
+        biomass_leaf0 = 0.0
+    End if
+    if(DOY .ge. DOYsenescence1 .AND. DOY .LT. DOYsenescence2) Then
+        senescence = 1.0
+    else
+        senescence = 0.0
+    end if
 
     if(DOY .LE. DOYPhen1) Then
         PhenStage = 1
@@ -43,40 +55,48 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Carbon allocation
     Select Case (PhenStage)
         Case (1)
+            Allocation_fruits = 0.0
             Allocation_leaf = 0.0
             Allocation_shoots = 0.0
             Allocation_stem = 0.0
             Allocation_froots = 0.0
             Allocation_croots = 0.0
-            Allocation_fruits = 0.0
             Allocation_reserves = 1.0
             reallocation        = 0.0
         Case (2)
+            Allocation_fruits = 0.
             Allocation_leaf = PC_leaf
             Allocation_shoots = PC_shoots
             Allocation_stem = PC_stem
             Allocation_froots = PC_froots
             Allocation_croots = PC_croots
-            Allocation_fruits  = 0.0
             Allocation_reserves = 0.0
             reallocation        = 1.0            
         Case (3)
-            Allocation_leaf = PC_leaf*(1.0 - PCfr)
-            Allocation_shoots = PC_shoots*(1.0 - PCfr)
-            Allocation_stem = PC_stem*(1.0 - PCfr)
-            Allocation_froots = PC_froots*(1.0 - PCfr)
-            Allocation_croots = PC_croots*(1.0 - PCfr)
-            Allocation_fruits = PCfr
+            if(Age .GE. Adult) Then        
+                Allocation_fruits  = PCfr
+            else
+                Allocation_fruits = 0.0
+            End if             
+            Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
+            Allocation_shoots = PC_shoots*(1.0 - Allocation_fruits)
+            Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
+            Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
+            Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
             Allocation_reserves = 0.0
             PV_fruits = PVfr
             reallocation        = 0.0            
         Case (4)
-            Allocation_leaf = PC_leaf*(1.0 - PCoil)
-            Allocation_shoots = PC_shoots*(1.0 - PCoil)
-            Allocation_stem = PC_stem*(1.0 - PCoil)
-            Allocation_froots = PC_froots*(1.0 - PCoil)
-            Allocation_croots = PC_croots*(1.0 - PCoil)
-            Allocation_fruits = PCoil
+            if(Age > Adult) Then
+                Allocation_fruits = PCoil
+            else
+                Allocation_fruits = 0.0
+            End if
+            Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
+            Allocation_shoots = PC_shoots*(1.0 - Allocation_fruits)
+            Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
+            Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
+            Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
             Allocation_reserves = 0.0
             PV_fruits           = PVoil
             reallocation        = 0.0            
@@ -89,10 +109,10 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     RmD          = (Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + Biomass_stem*RmRef_stem + Biomass_froots*RmRef_froots + Biomass_croots*RmRef_croots + Biomass_fruits*RmRef_fruits)*Tf*24.0
     If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres ! Source limitation of photosynthesis 
     Pool         = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres - RmD
-    !write(*,*) RmD, totRespf(1), LAD*Volume
 
 ! Update the state variables 
-    Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf/d_alley/d_row    
+    Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf/d_alley/d_row  - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1)
+    biomass_leaf0       = Biomass_leaf + Pool*Allocation_leaf*PV_leaf/d_alley/d_row 
     Volume       = Volume       + Pool*Allocation_leaf*PV_leaf*specific_leaf_area/LAD
     LAI          = LAI          + Pool*Allocation_leaf*PV_leaf/d_alley/d_row *specific_leaf_area
     If(trim(DensOpt) == trim('H')) THEN
