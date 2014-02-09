@@ -46,13 +46,14 @@ Implicit none
     	close(out_growth)
         CALL SUBERROR('ERROR: out_growth.dat does not exist', IFATAL,IOERROR)
     ENDIF 
-    Write(out_growth, '(12(A14,3x))') 'Leaf','Shoots','Stem','Fine_roots','Coarse_roots','Fruits','Reserves','Volume','LAI','Height','Radius_x','Radius_y'
+    Write(out_growth, '(14(A14,3x))') 'Year','DOY','Leaf','Shoots','Stem','Fine_roots','Coarse_roots','Fruits','Reserves','Volume','LAI','Height','Radius_x','Radius_y'
 end subroutine read_growth_inputs
 
-subroutine write_growth_outputs
+subroutine write_growth_outputs(Year, DOY)
 USE maestcom, only: out_growth
 Implicit None
-	Write(out_growth, '(12(ES16.6E3,3x))') Biomass_leaf, Biomass_shoots, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry
+integer :: Year, DOY
+	Write(out_growth, '(I2,3x,I3,2x,12(ES16.6E3,3x))') Year, DOY, Biomass_leaf, Biomass_shoots, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry
 end subroutine 
 
 subroutine growth_finalize

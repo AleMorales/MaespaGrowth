@@ -3,8 +3,9 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv
 Integer          :: Year, Doy, PhenStage
+Logical :: pruning
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
 call maespa_initialize
@@ -14,9 +15,10 @@ call read_growth_inputs
 ! The daily loop and its variables (Istart, Iday, Iend) correspond to the original daily loop in Maestra
 IDAY = 1
 DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
-
 ! Determine phenological stage
-    DOY = mod(iday, 365)
+    DOY = mod(iday, 365) + 1
+    Year = iday/365 + 1
+!    write(*,*) 'Year = ', Year, 'DOY = ', DOY
     If(DOY == 1) Then
         Age = Age + 1
         biomass_leaf2 = biomass_leaf1
@@ -30,14 +32,56 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         senescence = 0.0
     end if
 
-    if(DOY .LE. DOYPhen1) Then
+    if(DOY .LT. DOYPhen1) Then
         PhenStage = 1
-    else if(DOY .LE. DOYPhen2) Then
+    else if(DOY .LT. DOYPhen2) Then
         PhenStage = 2
-    else if(DOY .LE. DOYPhen3) Then
+    else if(DOY .LT. DOYPhen3) Then
         PhenStage = 3
-    else if(DOY .LE. DOYPhen4) Then
+    else if(DOY .LT. DOYPhen4) Then
         PhenStage = 4
+    else if(DOY == DOYPhen4) Then
+        PhenStage = 1
+        Biomass_fruits = 0.0 ! Harvest
+        ! Pruning for high density orchards is always applied but differs when H > Hmax or H <= Hmax
+        if(trim(DensOpt) == 'H') Then
+        ! Prunning may want to control maximum height
+            if(H > Hmax) Then                                                      
+                H = Hmax  
+                Volume = Hmax*Rx*Ry*4.0/3.0/2.0*3.1416
+                Rx = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_alley/3.0)
+                Ry = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_row/2.0)                                                   
+                Volume = Hmax*Rx*Ry*4.0/3.0/2.0*3.1416 ! Because Rx and Ry may be limited by tree spacing  
+            end if
+        ! Calculate LADv and prune LAD if bigger. Use empirical rule from Orgaz et al. (2007)    
+            if(Volume/(D_row*D_alley) < 0.5) then
+                LADv = 2.0
+            else
+                LADv = 2.0 - 0.8*(Volume/(d_row*d_alley) - 0.5)/1.5
+            end if      
+            if(LAD > LADv) LAD = LADv              
+        ! Update all state variables and canopy dimensions 
+            LAI = Volume/(d_alley*d_row)*LAD  
+            ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
+            ratio_leaf_stem   =    Biomass_leaf/Biomass_stem 
+            Biomass_leaf = LAI/specific_leaf_area                                                
+            Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
+            Biomass_stem = Biomass_leaf/ratio_leaf_stem      
+        ! Prunning for super-high density orchards only applied when H > Hmax   
+        else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
+        ! Update all state variables and canopy dimensions    
+            H = Hmax  
+            Volume = Hmax*4.0*Rx*Ry
+            Rx = min((0.125*Volume/cp)**(1.0/3.0), d_alley/3.0)
+            Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)                                                       
+            Volume = Hmax*4.0*Rx*Ry ! Because Rx and Ry may be limited by tree spacing                                                
+            LAI = Volume*LAD/d_alley/d_row 
+            ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
+            ratio_leaf_stem   =    Biomass_leaf/Biomass_stem                                  
+            Biomass_leaf = LAI/specific_leaf_area                                                
+            Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
+            Biomass_stem = Biomass_leaf/ratio_leaf_stem     
+        end if
     else
         PhenStage = 1
     end if
@@ -114,12 +158,17 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf/d_alley/d_row  - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1)
     biomass_leaf0       = Biomass_leaf + Pool*Allocation_leaf*PV_leaf/d_alley/d_row 
     Volume       = Volume       + Pool*Allocation_leaf*PV_leaf*specific_leaf_area/LAD
-    LAI          = LAI          + Pool*Allocation_leaf*PV_leaf/d_alley/d_row *specific_leaf_area
-    If(trim(DensOpt) == trim('H')) THEN
+    LAI          = Volume/d_alley/d_row*LAD
+    If(trim(DensOpt) == trim('SH')) THEN
       Rx = min((0.125*Volume/cp)**(1.0/3.0), d_alley/3.0)
       Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)
       H  = Volume/4.0/Rx/Ry
+    else if(trim(DensOpt) == 'H') Then      
+     Rx  = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_alley/3.0)
+     Ry  = min((0.75*Volume/cp/3.1416)**(1.0/3.0), d_row/2.0)
+     H   = 0.75*Volume/3.1416/Rx/Ry*2.0
     End if
+
     Biomass_shoots = Biomass_shoots + Pool*Allocation_shoots*PV_shoots/d_alley/d_row
     Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem/d_alley/d_row
     Biomass_froots = Biomass_froots + Pool*Allocation_froots*PV_froots/d_alley/d_row - Biomass_froots*Kroots
@@ -129,7 +178,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     if(PhenStage == 1) ReservesT = Reserves
 
 ! Write something to the output
-    Call  write_growth_outputs
+    Call  write_growth_outputs(Year, DOY)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
