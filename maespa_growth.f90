@@ -3,7 +3,7 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2
 Integer          :: Year, Doy, PhenStage
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
@@ -66,9 +66,15 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 if(LAD > LADv) LAD = LADv              
             ! Update all state variables and canopy dimensions 
                 LAI = Volume/(d_alley*d_row)*LAD  
+                cohort0 = biomass_leaf0/biomass_leaf                
+                cohort1 = biomass_leaf1/biomass_leaf
+                cohort2 = biomass_leaf2/biomass_leaf                
                 ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem 
-                Biomass_leaf = LAI/specific_leaf_area                                                
+                Biomass_leaf = LAI/specific_leaf_area  
+                Biomass_leaf0 = cohort0*Biomass_leaf  
+                Biomass_leaf1 = cohort1*Biomass_leaf  
+                Biomass_leaf2 = cohort2*Biomass_leaf                                                                             
                 Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem      
             ! Prunning for super-high density orchards only applied when H > Hmax   
@@ -80,9 +86,15 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)                                                       
                 Volume = Hmax*4.0*Rx*Ry ! Because Rx and Ry may be limited by tree spacing                                                
                 LAI = Volume*LAD/d_alley/d_row 
+                cohort0 = biomass_leaf0/biomass_leaf                
+                cohort1 = biomass_leaf1/biomass_leaf
+                cohort2 = biomass_leaf2/biomass_leaf                 
                 ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots   
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem                                  
-                Biomass_leaf = LAI/specific_leaf_area                                                
+                Biomass_leaf = LAI/specific_leaf_area        
+                Biomass_leaf0 = cohort0*Biomass_leaf  
+                Biomass_leaf1 = cohort1*Biomass_leaf  
+                Biomass_leaf2 = cohort2*Biomass_leaf                                                          
                 Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem     
             end if
@@ -162,7 +174,8 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Update the state variables 
 ! Leaf biomass (g dm (m ground)-2)
     Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1)
-    biomass_leaf0       = Biomass_leaf + Pool*Allocation_leaf*PV_leaf 
+    biomass_leaf0  = biomass_leaf0 + Pool*Allocation_leaf*PV_leaf 
+    biomass_leaf2 = biomass_leaf2 - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1)
 ! Volume of an individual crown (m3)
     Volume       = Volume       + (Pool*Allocation_leaf*PV_leaf - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1))*specific_leaf_area/LAD*d_alley*d_row
 ! Leaf area index (m2 leaf (m ground)-2)
