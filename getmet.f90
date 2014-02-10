@@ -1741,15 +1741,15 @@ Real, intent(in) :: TMAX,TMIN,DAYL,taun, p1, p2, Ik
 Real, intent(out) :: TAIR(MAXHRS)
 Real :: HRTIME,TIME, S, sunset, sunrise, Tss
 ! Time of sunrise and sunset (h)
-sunrise = 12 - DAYL/2
-sunset = 12 + DAYL/2
+sunrise = 12.0 - DAYL/2.0
+sunset = 12.0 + DAYL/2.0
 
 ! Loop through daytime and calculate air temperature (Tair, °C) at each time of the day
 Day: do I = 1,KHRS
 ! Calculates the time of the day (h).
    time = real(I)/KHRS*24
 ! Calculate the function S (relative variation of temperature during daytime)
-   S = sin(pi*(time  - p1 - 12 + DAYL/2)/(DAYL + 2*p2))
+   S = sin(pi*(time  - p1 - 12.0 + DAYL/2.0)/(DAYL + 2.0*p2))
 ! And now calculate temperature during the day
    if(time > sunrise +  p1 .AND. time < sunset) then
 ! When we do not consider the effect of buoyancy (I¬k, °C–1). In theory Ik = 0, but to avoid floating-point errors is better to give a negative value. 
@@ -1770,17 +1770,17 @@ enddo Day
 ! Loop through nightime and calculate air temperature (Tair, °C) at each time of the night
 Night: do I = 1,KHRS
 ! Calculates the time of the day (h).
-   time = real(I)/KHRS*24
+   time = real(I)/KHRS*24.0
 ! Calculate the function S (relative variation of temperature during daytime)
-   S = sin(pi*(time  - p1 - 12 + DAYL/2)/(DAYL + 2*p2))
+   S = sin(pi*(time  - p1 - 12 + DAYL/2.0)/(DAYL + 2.0*p2))
 ! And now calculate temperature during the night
    if(time > sunset .OR. time < sunrise +  p1) then
 ! To make sure that it always counts the hours since sunset, especially after midnight
      if(time < sunrise +  p1) then 
-       time = time + 24
+       time = time + 24.0
      endif   
 ! Exponential decay of air temperature. Parameter taun (h) is the time coefficient. 
-     Tair(I) = (Tmin - Tss*exp(-(24 - DAYL)/taun) + (Tss - Tmin)*exp(-(time - sunset)/taun))/(1 - exp(-(24 - DAYL)/taun))  
+     Tair(I) = (Tmin - Tss*exp(-(24.0 - DAYL)/taun) + (Tss - Tmin)*exp(-(time - sunset)/taun))/(1.0 - exp(-(24.0 - DAYL)/taun))  
    endif  
 enddo Night
 RETURN
@@ -1846,7 +1846,7 @@ END
 ! Rayleigh correction due to effect of scattering on solar spectrum
     if(OpRayleigh == 1) then
 ! Correction depends on both fdif and fdifprime calculated in the above   
-       FPARdif = (1 + 0.3*(1 - Fdif**2))*FdifPrime
+       FPARdif = (1.0 + 0.3*(1.0 - Fdif**2.0))*FdifPrime
     else
 ! Even if the corection is not applied, the change in the variable is needed
       FPARdif = FdifPrime
@@ -1854,14 +1854,14 @@ END
 ! Calculate tau (atmospheric transmission) for diffuse PAR with both corrections
     TauDifPAR = FPARdif*SGD/SOD 
 ! Calculate tau for diffuse NIR. The effect of Rayleigh is calculated indirectly by assuming equal share of energy in PAR and NIR bands for global and diffuse radiations. 
-    TauDifNIR = (FdifPrime*2 - FPARdif)*SGD/SOD
+    TauDifNIR = (FdifPrime*2.0 - FPARdif)*SGD/SOD
 ! Calculate declination angle (dec, radian) and the parameter a and b (Goudriaan & van Laar, 1994)
-   Dec = asin(-sin(pi*23.45/180)*cos(2*pi*(JDATE(IDATE) + 10)/365))             
+   Dec = asin(-sin(pi*23.45/180.0)*cos(2.0*pi*(JDATE(IDATE) + 10.0)/365.0))             
    a = sin(Lat)*sin(Dec)                                           
    b = cos(Lat)*cos(Dec)    
 ! Analytical solution to integration of Sg for disaggregation (Spitters et al., 1986) in units of s
-    Integral =  3600*(DayL*(a + c*(a**2 + 0.5*b**2)) &
-               + 24/pi*b*(1 + 1.5*c*a)*sqrt(1 - a**2/b**2))
+    Integral =  3600.0*(DayL*(a + c*(a**2.0 + 0.5*b**2.0)) &
+               + 24.0/pi*b*(1 + 1.5*c*a)*sqrt(1 - a**2.0/b**2.0))
 ! Calculate the FBEAM during the day (this could be vectorized...)
     DO I=1,KHRS
 ! Calculate instantaneous extraterrestrial solar radiation during the day (W m-2)
