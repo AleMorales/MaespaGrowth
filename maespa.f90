@@ -48,7 +48,6 @@ subroutine run_maespa
     !***********************************************************************!
     
 
-
         !WRITE(*,105) IDAY
         !105 FORMAT('  DAY:',I5)
        
@@ -106,7 +105,6 @@ subroutine run_maespa
         CALL GETMET(IDAY+ISTART,MFLAG,ZEN,METCOLS,NOMETCOLS,CAK,PRESSK,SWMIN,SWMAX,DELTAT,  &
                     ALAT,DEC,DAYL,WINDAH,TSOIL,TAIR,RADABV,FBEAM,RH,VPD,VMFD,CA,PRESS,      &
                     PPT,SOILMOIST,SOILDATA,TSOILDATA,ETMEAS)
-
         ! Moving average air temperature (for acclimation of respiration - not currently documented feature).
         MOVEWINDOW = 7 * KHRS
         TAIRMEM = CSHIFT(TAIRMEM, -KHRS)
@@ -392,7 +390,6 @@ subroutine run_maespa
         !                       Begin hourly loop                              !
         !**********************************************************************!
         DO IHOUR = 1,KHRS
-            
             CALL ZEROFSOIL(FSOIL1,NSUMMED,TOTTMP)
 
             ! Loop over all chosen trees within subplot
@@ -555,7 +552,6 @@ subroutine run_maespa
                 CALL POINTSNEW(NOLAY,PPLAY,JLEAF,JSHAPE,SHAPE,RX(1),RY(1),RZ(1),ZBC(1),DXT(1),DYT(1),&
                                 DZT(1),FOLT(1),PROPC,PROPP,BPT,NOAGECT(1),NOAGEP,XL,YL,ZL,VL,DLT,DLI,&
                                 LGP,FOLLAY)          
-                
                 ! Following function s need FOLLAY. 
                 CALL GETWIND(FOLLAY,FOLT(1),TOTLAI,EXTWIND,WINDLAY)
           
@@ -578,7 +574,7 @@ subroutine run_maespa
                 IF (NEWTUTD.EQ.1.AND.TOTLAI.GT.0) THEN
                     CALL EHC(NUMPNT,TU,TD,TOTLAI,XSLOPE,YSLOPE,NAZ,NZEN,DIFZEN,DEXT,DLAI,EXPDIF,LAYER,MLAYER)
                 END IF
-                
+
                 IF(ISMAESPA)THEN
                     
                     ! Assign soil water measurement to SOILMOIST, depending on settings.
@@ -701,7 +697,6 @@ subroutine run_maespa
                         CALL SUMHRUS(IHOUR,NOUSPOINTS,GRDAREAI,AREAUS,PARUS,PARUSMEAN,PARUSSD,APARUS,PSUS,ETUS,THRABUS,&
                                     FCO2US,FH2OUS)
                     ENDIF ! Understorey calculations
-                          
                     ! Loop over grid points
                     DO IPT = 1,NUMPNT
                         ! Calculate the weighted pathlengths for beam radiation.
@@ -868,7 +863,6 @@ subroutine run_maespa
 112      FORMAT(4(1X,I4), 7(1X,F12.3), 13(1X,F12.3))
                     
                     END DO ! End loop over grid points
-                    
 
                     ! Calculate transpiration by applying Penman-Monteith to canopy
                     FH2OCAN(ITAR,IHOUR) = ETCAN(WINDAH(IHOUR),ZHT,Z0HT,ZPD,PRESS(IHOUR),TAIR(IHOUR),    &
@@ -883,7 +877,6 @@ subroutine run_maespa
                     CICAN(ITAR,IHOUR) = CICAN(ITAR,IHOUR)/FOLT(1)
                     
                 ELSE ! Night-time
-    
                     ! Canopy T at nighttime is same as air temperature. 
                     TCAN(ITAR,IHOUR) = TAIR(IHOUR)
                     ! Leaf water potential same as soil water potential
@@ -950,7 +943,6 @@ subroutine run_maespa
 
 
             END DO ! End loop over trees
-            
 
             ! Do the water balance.
             ! Throughfall, soil evaporation, root water uptake, infiltration of surface water,
@@ -972,7 +964,6 @@ subroutine run_maespa
                     ENDIF
                 ENDDO
             ENDDO
-           
 !            K = 1
 !            DO I = 1,NOALLTREES
 !               IF(IT(I).EQ.ITARGETS(K))THEN
@@ -1060,12 +1051,10 @@ subroutine run_maespa
                                 FH2OCAN,FHEAT,VPD,TAIR,UMOLPERJ*RADABV(1:KHRS,1),PSILCAN,PSILCANMIN,CICAN,  &
                                 ECANMAX,ACANMAX,ZEN,AZ)             ! rajout ZEN AZ mathias mars 2013
 
-
    
        
         !**********************************************************************
         END DO ! End hourly loop
-
         ! Calculate daily growth respiration
         TOTRESPWG = GRESP(WBINC,EFFYRW)
         TOTRESPBG = GRESP(BBINC,EFFYRW)

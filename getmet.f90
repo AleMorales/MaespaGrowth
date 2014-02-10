@@ -489,7 +489,6 @@ SUBROUTINE GETMETDAY(IDATE,ZEN,NOMETCOLS,METCOLS,CAK,PRESSK,SWMIN,SWMAX,DELTAT,A
     else
         CALL CALCTHRLY(TMAX,TMIN,DAYL,TAIR)
     end if
-
     ! Calculate soil temperatures
     !      CALL CALCTSOIL(TAIR,TSOIL)
     TSOILDATA = 0  ! Can't read in daily values.
