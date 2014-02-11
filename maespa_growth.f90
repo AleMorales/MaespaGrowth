@@ -45,14 +45,21 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         ThermalTime = 0.0
     end if
 
-    ! Phenological stages plus harvest/pruning
+    ! Phenological stages plus harvest/pruning. 
+    ! Note that thermaltime and chilling hours are calculated after this code, so they refer to the previous day of simulation
+    ! One could think of this code happening at the beginning of each day and temperature-related and carbon allocation happening at the end of the day
+    ! It also means that harvesting and pruning is done "at the beginning of the day"
+    ! Note that harvesting and vernalization start
     if(DOY .LT. DOYPhen1) Then
         PhenStage = 1
-    else if(DOY .LT. DOYPhen2) Then
+    !else if(DOY .LT. DOYPhen2) Then
+    else if((ChillingHours < ColdRequirement .OR. ThermalTime < ThermalTimeRequirement) .AND. DOY < DOYPhen3) then
         PhenStage = 2
-    else if(DOY .LT. DOYPhen3) Then
+    !else if(DOY .LT. DOYPhen3) Then
+    else if(ChillingHours > ColdRequirement .AND. ThermalTime > ThermalTimeRequirement .AND. DOY < DOYPhen3) then
         PhenStage = 3
-    else if(DOY .LT. DOYPhen4) Then
+    !else if(DOY .LT. DOYPhen4) Then
+    else if(DOY .GE. DOYPhen3 .AND. DOY .LT. DOYPhen4) Then
         PhenStage = 4
     else if(DOY == DOYPhen4) Then
         PhenStage = 1
@@ -111,7 +118,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem     
             end if
         end if
-    else
+    else if (DOY .GT. DOYPhen4) then
         PhenStage = 1
     end if
 
@@ -134,9 +141,11 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
             if(Tair(i) > 0.0 .AND. Tair(i) .LE. Phen_T0) Then
                 ChillingHours_day = ChillingHours_day + Tair(i)/Phen_T0*24.0/KHRS ! Note 24.0 and not 24 to coerce to floating point.
             else if (Tair(i) .LE. Phen_Tx) Then
-                ChillingHours_day = ChillingHours_day + (1.0 - (Phen_Tx - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/KHRS
+                ChillingHours_day = ChillingHours_day + (1.0 - (Tair(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/KHRS
             else if (Tair(i) > Phen_Tx) Then
                 ChillingHours_day = ChillingHours_day + Phen_a*24.0/KHRS
+            else
+                ChillingHours_day = ChillingHours_day
             end if
         End Do
         ChillingHours = ChillingHours + ChillingHours_day
