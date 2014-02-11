@@ -7,7 +7,7 @@ SUBROUTINE default_conditions(in_path, out_path)
     IOTUTD = 9   ! Controls transmittance file output
     IOHIST = 0   ! Controls histogram output
     IORESP = 0   ! Controls respiration output
-    IODAILY = 1  ! Controls daily output: FIXED HERE 
+    IODAILY = 0  ! Controls daily output: FIXED HERE 
     IOWATBAL = 1 ! Controls water balance output
     IOFORMAT = 0 ! Dump mode...
     ISUNLA = 0 ! Mathias 27/11/12
