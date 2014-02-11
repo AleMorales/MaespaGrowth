@@ -3,8 +3,8 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, RUE
-Integer          :: Year, Doy, PhenStage
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, RUE, ChillingHours_day
+Integer          :: Year, Doy, PhenStage, i
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
 
@@ -18,22 +18,34 @@ call read_growth_inputs
 ! The daily loop and its variables (Istart, Iday, Iend) correspond to the original daily loop in Maestra
 IDAY = 1
 DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
+
 ! Determine phenological stage
     DOY = mod(iday, 365) + 1
     Year = iday/365 + 1
-    If(DOY == 1) Then
+
+    ! Update age and leaf cohorts
+    If(DOY == 1) Then 
         Age = Age + 1
         biomass_leaf2 = biomass_leaf1
         biomass_leaf2T = biomass_leaf2
         biomass_leaf1 = biomass_leaf0
         biomass_leaf0 = 0.0
     End if
+
+    ! Turn on senescence in the case when senescence concentrates on a period of the year
     if(DOY .ge. DOYsenescence1 .AND. DOY .LT. DOYsenescence2) Then
         senescence = 1.0
     else
         senescence = 0.0
     end if
 
+    ! Restart phenological variables used for flowering date
+    if (DOY == 274) Then
+        ChillingHours = 0.0
+        ThermalTime = 0.0
+    end if
+
+    ! Phenological stages plus harvest/pruning
     if(DOY .LT. DOYPhen1) Then
         PhenStage = 1
     else if(DOY .LT. DOYPhen2) Then
@@ -111,8 +123,27 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     ZBCTABLE1(1,:) = min(H/2.0,0.5) ! Trunk height (i.e. from ground to first green branch). Not really much effect on simulation (unless we want info on the ground)
 
 ! Call the main code of maespa. This corresponds to all the code that was located within the daily loop of maespa
+! Note that this code will update the arrays containing weather information, so all calculations dependent on temperature should appear afterwards.
     call run_maespa
 
+    ! Update chilling hours
+    if(ChillingHours < ColdRequirement) Then
+        ! Code to update chilling hours
+        ChillingHours_day = 0
+        Do i = 1, KHRS ! KHRS are the number of steps within a day (e.g 48 -> dt = 0.5 h)
+            if(Tair(i) > 0.0 .AND. Tair(i) .LE. Phen_T0) Then
+                ChillingHours_day = ChillingHours_day + Tair(i)/Phen_T0*24.0/KHRS ! Note 24.0 and not 24 to coerce to floating point.
+            else if (Tair(i) .LE. Phen_Tx) Then
+                ChillingHours_day = ChillingHours_day + (1.0 - (Phen_Tx - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/KHRS
+            else if (Tair(i) > Phen_Tx) Then
+                ChillingHours_day = ChillingHours_day + Phen_a*24.0/KHRS
+            end if
+        End Do
+        ChillingHours = ChillingHours + ChillingHours_day
+    else if(ChillingHours > ColdRequirement .AND. ThermalTime < ThermalTimeRequirement) Then
+        ! Code to update thermal time. Parameter based on daily average temperature, so use that
+        ThermalTime = ThermalTime + max(sum(Tair(1:KHRS))/KHRS - Phen_Tb, 0.0)
+    end if
 ! Carbon allocation
     Select Case (PhenStage)
         Case (1)
