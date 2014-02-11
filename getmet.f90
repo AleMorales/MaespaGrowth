@@ -1866,8 +1866,12 @@ END
    Dec = asin(-sin(pi*23.45/180.0)*cos(2.0*pi*(JDATE(IDATE) + 10.0)/365.0))             
    a = sin(Lat)*sin(Dec)                                           
    b = cos(Lat)*cos(Dec)    
-! Analytical solution to integration of Sg for disaggregation (Spitters et al., 1986) in units of s
-    Integral =  3600.0*(DayL*(a + c*(a**2.0 + 0.5*b**2.0)) + 24.0/pi*b*(1.0 + 1.5*c*a)*sqrt(1 - a**2.0/b**2.0))
+! Integration of the diurnal trend factor in Spitters et al. (1986).
+    Integral = 0.
+    Do I = 1,KHRS
+        !Integral =  3600.0*(DayL*(a + c*(a**2.0 + 0.5*b**2.0)) + 24.0/pi*b*(1.0 + 1.5*c*a)*sqrt(1 - a**2.0/b**2.0))
+        Integral = Integral + max(cos(ZEN(I))*(1.0 + c*cos(ZEN(I))), 0.0)*SPERHR
+    End Do
 ! Calculate the FBEAM during the day (this could be vectorized...)
     SGT = 0
     DO I=1,KHRS
@@ -1894,7 +1898,6 @@ END
 ! Calculate total incident NIR (W m-2)
       RADABV(I,2) = NIRDF + NIRBM         
     ENDDO
-    write(*,*) SGT*SPERHR/1E6/SGD
     RETURN
     END 
 
