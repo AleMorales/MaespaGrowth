@@ -1813,7 +1813,7 @@ END
     REAL, intent(in) :: SGD,DAYL,c,Lat
     Integer, intent(in) :: OpMie,OpRayleigh, IDATE
     Real, intent(out) :: RADABV(MAXHRS,3), FBEAM(MAXHRS,3)
-    Real :: Beta(maxhrs), SGT
+    Real :: Beta(maxhrs)
     Real :: SOD,SINB,Fdif,DailyBeta,FdifPrime,FPARdif,TauDifPAR, dec, TauDifNIR, Integral, SG, PARDF, NIRDF, PARBM, NIRBM, SO, a, b
     Real, external :: ETRAD
     INTEGER, EXTERNAL :: JDATE
@@ -1869,26 +1869,23 @@ END
 ! Integration of the diurnal trend factor in Spitters et al. (1986).
     Integral = 0.
     Do I = 1,KHRS
-        !Integral =  3600.0*(DayL*(a + c*(a**2.0 + 0.5*b**2.0)) + 24.0/pi*b*(1.0 + 1.5*c*a)*sqrt(1 - a**2.0/b**2.0))
         Integral = Integral + max(cos(ZEN(I))*(1.0 + c*cos(ZEN(I))), 0.0)*SPERHR
     End Do
 ! Calculate the FBEAM during the day (this could be vectorized...)
-    SGT = 0
     DO I=1,KHRS
 ! Calculate instantaneous extraterrestrial solar radiation during the day (W m-2)
       SINB = SIN(PID2-ZEN(I))
       SO = ETRAD(IDATE,SINB)
 ! Calculate disaggregated solar radiation (W m-2)
       SG = max(cos(ZEN(I))*(1.0 + c*cos(ZEN(I)))*SGD*1e6/Integral, 0.0)
-      SGT = SGT + SG
 ! Calculate diffuse PAR assuming constant TauDif throughout the day (W m-2)
-      PARDF = min(SO*TauDifPAR*0.5, SG*0.5)
+      PARDF = min(SO*TauDifPAR*0.45, SG*0.45)
 ! Calculate diffuse NIR assuming constant TauDif throughout the day (W m-2)
-      NIRDF = min(SO*TauDifNIR*0.5, SG*0.5)
+      NIRDF = min(SO*TauDifNIR*0.45, SG*0.45)
 ! Calculate direct PAR from difference (W m-2)
-      PARBM = SG*0.5 - PARDF
+      PARBM = SG*0.45 - PARDF
 ! Calculate direct NIR from difference (W m-2)
-      NIRBM = SG*0.5 - NIRDF
+      NIRBM = SG*0.45 - NIRDF
 ! Calculate FBEAM for PAR
       FBEAM(I,1) =  PARDF/(PARDF + PARBM)
 ! Calculate FBEAM for NIR
