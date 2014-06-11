@@ -207,7 +207,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Assimilation = (totCO2(1) + totRespf(1))/d_alley/d_row*12.0
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
     RmD          = sum((Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + Biomass_stem*RmRef_stem + Biomass_froots*RmRef_froots + Biomass_croots*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS 
-    !RmD = 0.5*0.7*Assimilation
 ! Source limitation of photosynthesis 
     If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
 ! Pool of assimilates (g C (m ground)-2)
