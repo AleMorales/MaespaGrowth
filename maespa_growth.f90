@@ -197,29 +197,29 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
             reallocation        = 1.0
         Case (3)
             if(Age .GE. Adult) Then
-                Allocation_fruits  = (1.0 - PC_froots - PC_croots)*PCfr
+                Allocation_fruits  = PCfr
             else
                 Allocation_fruits = 0.0
             End if
             Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
             Allocation_shoots = PC_shoots*(1.0 - Allocation_fruits)
             Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
-            Allocation_froots = PC_froots
-            Allocation_croots = PC_croots
+            Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
+            Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
             Allocation_reserves = 0.0
             PV_fruits = PVfr
             reallocation        = 0.0
         Case (4)
             if(Age .GE. Adult) Then
-                Allocation_fruits = (1.0 - PC_froots - PC_croots)*PCoil
+                Allocation_fruits = PCoil
             else
                 Allocation_fruits = 0.0
             End if
             Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
             Allocation_shoots = PC_shoots*(1.0 - Allocation_fruits)
             Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
-            Allocation_froots = PC_froots
-            Allocation_croots = PC_croots
+            Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
+            Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
             Allocation_reserves = 0.0
             PV_fruits           = PVoil
             reallocation        = 0.0
