@@ -106,7 +106,9 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_shoots0 = cohort0*Biomass_shoots
                 Biomass_shoots1 = cohort1*Biomass_shoots
                 Biomass_shoots2 = cohort2*Biomass_shoots
-                Biomass_stem = Biomass_leaf/ratio_leaf_stem
+                if(1.0/ratio_leaf_stem > ActiveWood) then
+                  Biomass_stem = Biomass_leaf*ActiveWood
+                end if
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             ! Prunning for super-high density orchards only applied when H > Hmax
             else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
@@ -134,9 +136,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_shoots0 = cohort0*Biomass_shoots
                 Biomass_shoots1 = cohort1*Biomass_shoots
                 Biomass_shoots2 = cohort2*Biomass_shoots
-                if(1.0/ratio_leaf_stem > ActiveWood) then
-                  Biomass_stem = Biomass_leaf*ActiveWood
-                end if
+                Biomass_stem = Biomass_leaf/ratio_leaf_stem
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             end if
         end if
