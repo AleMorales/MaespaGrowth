@@ -3,7 +3,7 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, RUE, ChillingHours_day, ratio_leaf_froots
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, DeltaB_above, ChillingHours_day, ratio_leaf_froots, DeltaB_below
 Integer          :: Year, Doy, PhenStage, i
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
@@ -268,10 +268,10 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     if(PhenStage == 1) ReservesT = Reserves
 
 ! Daily radiation use efficiency (to facilitate interpretation of the output)
-    RUE = (Pool*Allocation_shoots*PV_shoots + Pool*Allocation_stem*PV_stem + Pool*Allocation_fruits*PV_fruits + Pool*Allocation_reserves*PVres + Pool*Allocation_leaf*PV_leaf)/(TDYAB(1,1)/d_alley/d_row)
-    if(RUE < 0) write(*,*) Pool
+    DeltaB_above = Pool*Allocation_shoots*PV_shoots + Pool*Allocation_stem*PV_stem + Pool*Allocation_fruits*PV_fruits + Pool*Allocation_reserves*PVres + Pool*Allocation_leaf*PV_leaf
+    DeltaB_below = Pool*Allocation_croots*PV_croots + Pool*Allocation_froots*PV_froots
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, RUE, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, DeltaB_above, DeltaB_below, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
