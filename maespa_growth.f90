@@ -3,7 +3,7 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, RUE, ChillingHours_day, ratio_leaf_croots, ratio_leaf_froots
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, RUE, ChillingHours_day, ratio_leaf_froots
 Integer          :: Year, Doy, PhenStage, i
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
@@ -94,7 +94,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 cohort2 = biomass_leaf2/biomass_leaf
                 ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
-                ratio_leaf_croots   =    Biomass_leaf/Biomass_croots
                 ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
                 Biomass_leaf = LAI/specific_leaf_area
                 Biomass_leaf0 = cohort0*Biomass_leaf
@@ -108,7 +107,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_shoots1 = cohort1*Biomass_shoots
                 Biomass_shoots2 = cohort2*Biomass_shoots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem
-                Biomass_croots = Biomass_leaf/ratio_leaf_croots
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             ! Prunning for super-high density orchards only applied when H > Hmax
             else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
@@ -124,7 +122,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 cohort2 = biomass_leaf2/biomass_leaf
                 ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
-                ratio_leaf_croots   =    Biomass_leaf/Biomass_croots
                 ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
                 Biomass_leaf = LAI/specific_leaf_area
                 Biomass_leaf0 = cohort0*Biomass_leaf
@@ -137,8 +134,9 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_shoots0 = cohort0*Biomass_shoots
                 Biomass_shoots1 = cohort1*Biomass_shoots
                 Biomass_shoots2 = cohort2*Biomass_shoots
-                Biomass_stem = Biomass_leaf/ratio_leaf_stem
-                Biomass_croots = Biomass_leaf/ratio_leaf_croots
+                if(1.0/ratio_leaf_stem > ActiveWood) then
+                  Biomass_stem = Biomass_leaf*ActiveWood
+                end if
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             end if
         end if
