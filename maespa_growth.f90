@@ -33,7 +33,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         biomass_shoots2 = biomass_shoots1
         biomass_shoots2T = biomass_shoots2
         biomass_shoots1 = biomass_shoots0
-        biomass_shoots0 = 0.0        
+        biomass_shoots0 = 0.0
     End if
 
     ! Turn on senescence in the case when senescence concentrates on a period of the year
@@ -98,7 +98,13 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_leaf0 = cohort0*Biomass_leaf
                 Biomass_leaf1 = cohort1*Biomass_leaf
                 Biomass_leaf2 = cohort2*Biomass_leaf
+                cohort0 = biomass_shoots0/biomass_shoots
+                cohort1 = biomass_shoots1/biomass_shoots
+                cohort2 = biomass_shoots2/biomass_shoots
                 Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
+                Biomass_shoots0 = cohort0*Biomass_shoots
+                Biomass_shoots1 = cohort1*Biomass_shoots
+                Biomass_shoots2 = cohort2*Biomass_shoots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem
             ! Prunning for super-high density orchards only applied when H > Hmax
             else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
@@ -118,7 +124,13 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Biomass_leaf0 = cohort0*Biomass_leaf
                 Biomass_leaf1 = cohort1*Biomass_leaf
                 Biomass_leaf2 = cohort2*Biomass_leaf
+                cohort0 = biomass_shoots0/biomass_shoots
+                cohort1 = biomass_shoots1/biomass_shoots
+                cohort2 = biomass_shoots2/biomass_shoots
                 Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
+                Biomass_shoots0 = cohort0*Biomass_shoots
+                Biomass_shoots1 = cohort1*Biomass_shoots
+                Biomass_shoots2 = cohort2*Biomass_shoots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem
             end if
         end if
