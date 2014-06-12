@@ -247,7 +247,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
      H   = 0.75*Volume/pi/Rx/Ry*2.0
     End if
 ! Biomass of shoots, stem, froots, croots, fruits and reserves (g C (m ground)-2)
-    Biomass_shoots = Biomass_shoots + Pool*Allocation_shoots*PV_shoots
+    Biomass_shoots = Biomass_shoots + Pool*Allocation_shoots*PV_shoots - senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
     biomass_shoots0 = biomass_shoots0 + Pool*Allocation_shoots*PV_shoots
     biomass_shoots2 = biomass_shoots2 - senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
     Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem + senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
