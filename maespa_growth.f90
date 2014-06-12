@@ -248,14 +248,16 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     End if
 ! Biomass of shoots, stem, froots, croots, fruits and reserves (g C (m ground)-2)
     Biomass_shoots = Biomass_shoots + Pool*Allocation_shoots*PV_shoots
-    Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem
+    biomass_shoots0 = biomass_shoots0 + Pool*Allocation_shoots*PV_shoots
+    biomass_shoots2 = biomass_shoots2 - senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
+    Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem + senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
     Biomass_froots = Biomass_froots + Pool*Allocation_froots*PV_froots - Biomass_froots*Kroots
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
     Biomass_fruits = Biomass_fruits + Pool*Allocation_fruits*PV_fruits
     Reserves       = Reserves       + Pool*Allocation_reserves*PVres  - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)
     if(PhenStage == 1) ReservesT = Reserves
 
-! Average daily temperature
+! Daily radiation use efficiency (to facilitate interpretation of the output)
     RUE = (Pool*Allocation_shoots*PV_shoots + Pool*Allocation_stem*PV_stem + Pool*Allocation_fruits*PV_fruits + Pool*Allocation_reserves*PVres + Pool*Allocation_leaf*PV_leaf)/(TDYAB(1,1)/d_alley/d_row)
 ! Write state variables and fluxes to the output
     Call  write_growth_outputs(Year, DOY, Assimilation, RmD, RUE, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
