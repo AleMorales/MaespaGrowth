@@ -230,9 +230,13 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
     RmD          = sum((Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + min(Biomass_stem, Biomass_leaf*ActiveWood)*RmRef_stem + Biomass_froots*RmRef_froots + min(Biomass_croots, Biomass_leaf*ActiveWood*(PC_froots + PC_croots)/(PC_leaf + PC_shoots + PC_stem))*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS
 ! Source limitation of photosynthesis
-    If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
+    If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) Then
+      RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
 ! Pool of assimilates (g C (m ground)-2)
-    Pool         = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres - RmD
+      Pool      = 0.0
+    else
+      Pool = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres - RmD
+    end if
 ! Update the state variables
 ! Leaf biomass (g dm (m ground)-2)
     Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1)
@@ -265,6 +269,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 
 ! Daily radiation use efficiency (to facilitate interpretation of the output)
     RUE = (Pool*Allocation_shoots*PV_shoots + Pool*Allocation_stem*PV_stem + Pool*Allocation_fruits*PV_fruits + Pool*Allocation_reserves*PVres + Pool*Allocation_leaf*PV_leaf)/(TDYAB(1,1)/d_alley/d_row)
+    if(RUE < 0) write(*,*) Pool
 ! Write state variables and fluxes to the output
     Call  write_growth_outputs(Year, DOY, Assimilation, RmD, RUE, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
 
