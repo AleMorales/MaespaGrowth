@@ -46,7 +46,7 @@ Implicit none
     	close(out_growth)
         CALL SUBERROR('ERROR: out_growth.dat does not exist', IFATAL,IOERROR)
     ENDIF
-    Write(out_growth, '(22(A14,3x))') 'Year','DOY','Leaf','Shoots','Stem','Fine_roots','Coarse_roots','Fruits','Reserves','Volume','LAI','Height','Radius_x','Radius_y', 'Assimilation','M.Respiration','Leaf_0','Leaf_1','Leaf_2','RUEab','aPAR','PAR'
+    Write(out_growth, '(23(A14,3x))') 'Year','DOY','Leaf','Shoots','Stem','Fine_roots','Coarse_roots','Fruits','Reserves','Volume','LAI','Height','Radius_x','Radius_y', 'Assimilation','M.Respiration','Leaf_0','Leaf_1','Leaf_2', 'Shoots_0', 'RUEab','aPAR','PAR'
 end subroutine read_growth_inputs
 
 subroutine write_growth_outputs(Year, DOY, Assimilation, RmD, RUE, aPAR, PAR)
@@ -55,7 +55,7 @@ Implicit None
 integer, intent(in) :: Year, DOY
 double precision, intent(in) :: RUE, Assimilation, RmD, aPAR
 real, intent(in) :: PAR
-	Write(out_growth, '(I2,3x,I3,2x,20(ES16.6E3,3x))') Year, DOY, Biomass_leaf, Biomass_shoots, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry, Assimilation, RmD, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2, RUE, aPAR, PAR
+	Write(out_growth, '(I2,3x,I3,2x,21(ES16.6E3,3x))') Year, DOY, Biomass_leaf, Biomass_shoots, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry, Assimilation, RmD, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2, biomass_shoots0, RUE, aPAR, PAR
 end subroutine
 
 subroutine growth_finalize
