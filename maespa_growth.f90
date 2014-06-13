@@ -3,7 +3,7 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_shoots, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence,ratio_leaf_shoots, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, DeltaB_above, ChillingHours_day, ratio_leaf_froots, DeltaB_below
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots
 Integer          :: Year, Doy, PhenStage, i
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
@@ -23,17 +23,13 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     DOY = mod(iday, 365) + 1
     Year = iday/365 + 1
 
-    ! Update age, leaf cohorts and shoot cohorts
+    ! Update age and leaf cohorts
     If(DOY == 1) Then
         Age = Age + 1
         biomass_leaf2 = biomass_leaf1
         biomass_leaf2T = biomass_leaf2
         biomass_leaf1 = biomass_leaf0
         biomass_leaf0 = 0.0
-        biomass_shoots2 = biomass_shoots1
-        biomass_shoots2T = biomass_shoots2
-        biomass_shoots1 = biomass_shoots0
-        biomass_shoots0 = 0.0
     End if
 
     ! Turn on senescence in the case when senescence concentrates on a period of the year
@@ -92,20 +88,12 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 cohort0 = biomass_leaf0/biomass_leaf
                 cohort1 = biomass_leaf1/biomass_leaf
                 cohort2 = biomass_leaf2/biomass_leaf
-                ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
                 ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
                 Biomass_leaf = LAI/specific_leaf_area
                 Biomass_leaf0 = cohort0*Biomass_leaf
                 Biomass_leaf1 = cohort1*Biomass_leaf
                 Biomass_leaf2 = cohort2*Biomass_leaf
-                cohort0 = biomass_shoots0/biomass_shoots
-                cohort1 = biomass_shoots1/biomass_shoots
-                cohort2 = biomass_shoots2/biomass_shoots
-                Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
-                Biomass_shoots0 = cohort0*Biomass_shoots
-                Biomass_shoots1 = cohort1*Biomass_shoots
-                Biomass_shoots2 = cohort2*Biomass_shoots
                 if(1.0/ratio_leaf_stem > ActiveWood) then
                   Biomass_stem = Biomass_leaf*ActiveWood
                 end if
@@ -122,20 +110,12 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 cohort0 = biomass_leaf0/biomass_leaf
                 cohort1 = biomass_leaf1/biomass_leaf
                 cohort2 = biomass_leaf2/biomass_leaf
-                ratio_leaf_shoots =    Biomass_leaf/Biomass_shoots
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
                 ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
                 Biomass_leaf = LAI/specific_leaf_area
                 Biomass_leaf0 = cohort0*Biomass_leaf
                 Biomass_leaf1 = cohort1*Biomass_leaf
                 Biomass_leaf2 = cohort2*Biomass_leaf
-                cohort0 = biomass_shoots0/biomass_shoots
-                cohort1 = biomass_shoots1/biomass_shoots
-                cohort2 = biomass_shoots2/biomass_shoots
-                Biomass_shoots = Biomass_leaf/ratio_leaf_shoots
-                Biomass_shoots0 = cohort0*Biomass_shoots
-                Biomass_shoots1 = cohort1*Biomass_shoots
-                Biomass_shoots2 = cohort2*Biomass_shoots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             end if
@@ -180,7 +160,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         Case (1)
             Allocation_fruits = 0.0
             Allocation_leaf = 0.0
-            Allocation_shoots = 0.0
             Allocation_stem = 0.0
             Allocation_froots = 0.0
             Allocation_croots = 0.0
@@ -189,7 +168,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         Case (2)
             Allocation_fruits = 0.
             Allocation_leaf = PC_leaf
-            Allocation_shoots = PC_shoots
             Allocation_stem = PC_stem
             Allocation_froots = PC_froots
             Allocation_croots = PC_croots
@@ -202,7 +180,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Allocation_fruits = 0.0
             End if
             Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
-            Allocation_shoots = PC_shoots*(1.0 - Allocation_fruits)
             Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
             Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
             Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
@@ -216,7 +193,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 Allocation_fruits = 0.0
             End if
             Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
-            Allocation_shoots = PC_shoots*(1.0 - Allocation_fruits)
             Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
             Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
             Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
@@ -228,7 +204,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Pool of assimilates produce on a given day (g C (m2 ground)-2)
     Assimilation = (totCO2(1) + totRespf(1))/d_alley/d_row*12.0
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
-    RmD          = sum((Biomass_leaf*RmRef_leaf + Biomass_shoots*RmRef_shoots + min(Biomass_stem, Biomass_leaf*ActiveWood)*RmRef_stem + Biomass_froots*RmRef_froots + min(Biomass_croots, Biomass_leaf*ActiveWood*(PC_froots + PC_croots)/(PC_leaf + PC_shoots + PC_stem))*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS
+    RmD          = sum((Biomass_leaf*RmRef_leaf + min(Biomass_stem, Biomass_leaf*ActiveWood)*RmRef_stem + Biomass_froots*RmRef_froots + min(Biomass_croots, Biomass_leaf*ActiveWood*(PC_froots + PC_croots)/(PC_leaf + PC_stem))*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS
 ! Source limitation of photosynthesis
     If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) Then
       RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
@@ -256,22 +232,16 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
      Ry  = min((0.75*Volume/cp/pi)**(1.0/3.0), d_row/2.0)
      H   = 0.75*Volume/pi/Rx/Ry*2.0
     End if
-! Biomass of shoots, stem, froots, croots, fruits and reserves (g C (m ground)-2)
-    Biomass_shoots = Biomass_shoots + Pool*Allocation_shoots*PV_shoots - senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
-    biomass_shoots0 = biomass_shoots0 + Pool*Allocation_shoots*PV_shoots
-    biomass_shoots2 = biomass_shoots2 - senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
-    Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem + senescence*biomass_shoots2T/(DOYsenescence2 - DOYsenescence1)
+! Biomass of stem, froots, croots, fruits and reserves (g C (m ground)-2)
+    Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem
     Biomass_froots = Biomass_froots + Pool*Allocation_froots*PV_froots - Biomass_froots*Kroots
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
     Biomass_fruits = Biomass_fruits + Pool*Allocation_fruits*PV_fruits
     Reserves       = Reserves       + Pool*Allocation_reserves*PVres  - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)
     if(PhenStage == 1) ReservesT = Reserves
 
-! Daily radiation use efficiency (to facilitate interpretation of the output)
-    DeltaB_above = Pool*Allocation_shoots*PV_shoots + Pool*Allocation_stem*PV_stem + Pool*Allocation_fruits*PV_fruits + Pool*Allocation_reserves*PVres + Pool*Allocation_leaf*PV_leaf
-    DeltaB_below = Pool*Allocation_croots*PV_croots + Pool*Allocation_froots*PV_froots
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, DeltaB_above, DeltaB_below, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
