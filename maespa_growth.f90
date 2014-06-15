@@ -3,7 +3,7 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This containts the parameter and state variables and the growth module
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, residues
 Integer          :: Year, Doy, PhenStage, i
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
@@ -52,15 +52,19 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     ! Note that harvesting and vernalization start
     if(DOY .LT. DOYPhen1) Then
         PhenStage = 1
+        residues = 0
     !else if(DOY .LT. DOYPhen2) Then
     else if((ChillingHours < ColdRequirement .OR. ThermalTime < ThermalTimeRequirement) .AND. DOY < DOYPhen3) then
         PhenStage = 2
+        residues = 0
     !else if(DOY .LT. DOYPhen3) Then
     else if(ChillingHours > ColdRequirement .AND. ThermalTime > ThermalTimeRequirement .AND. DOY < DOYPhen3) then
         PhenStage = 3
+        residues = 0
     !else if(DOY .LT. DOYPhen4) Then
     else if(DOY .GE. DOYPhen3 .AND. DOY .LT. DOYPhen4) Then
         PhenStage = 4
+        residues = 0
     else if(DOY == DOYPhen4) Then
         PhenStage = 1
         Biomass_fruits = 0.0 ! Harvest
@@ -90,13 +94,16 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 cohort2 = biomass_leaf2/biomass_leaf
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
                 ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
+                residues = Biomass_leaf - LAI/specific_leaf_area
                 Biomass_leaf = LAI/specific_leaf_area
                 Biomass_leaf0 = cohort0*Biomass_leaf
                 Biomass_leaf1 = cohort1*Biomass_leaf
                 Biomass_leaf2 = cohort2*Biomass_leaf
                 if(1.0/ratio_leaf_stem > ActiveWood) then
+                  residues = residues + Biomass_stem - Biomass_leaf*ActiveWood
                   Biomass_stem = Biomass_leaf*ActiveWood
                 end if
+                residues = residues + Biomass_froots - Biomass_leaf/ratio_leaf_froots
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             ! Prunning for super-high density orchards only applied when H > Hmax
             else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
@@ -112,10 +119,12 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                 cohort2 = biomass_leaf2/biomass_leaf
                 ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
                 ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
+                residues = Biomass_leaf - LAI/specific_leaf_area
                 Biomass_leaf = LAI/specific_leaf_area
                 Biomass_leaf0 = cohort0*Biomass_leaf
                 Biomass_leaf1 = cohort1*Biomass_leaf
                 Biomass_leaf2 = cohort2*Biomass_leaf
+                residues = residues + Biomass_stem - Biomass_leaf/ratio_leaf_stem + Biomass_froots - Biomass_leaf/ratio_leaf_froots
                 Biomass_stem = Biomass_leaf/ratio_leaf_stem
                 Biomass_froots = Biomass_leaf/ratio_leaf_froots
             end if
@@ -235,13 +244,14 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Biomass of stem, froots, croots, fruits and reserves (g C (m ground)-2)
     Biomass_stem   = Biomass_stem   + Pool*Allocation_stem*PV_stem
     Biomass_froots = Biomass_froots + Pool*Allocation_froots*PV_froots - Biomass_froots*Kroots
+    root_loss      = Biomass_froots*Kroots
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
     Biomass_fruits = Biomass_fruits + Pool*Allocation_fruits*PV_fruits
     Reserves       = Reserves       + Pool*Allocation_reserves*PVres  - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)
     if(PhenStage == 1) ReservesT = Reserves
 
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
