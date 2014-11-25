@@ -40,7 +40,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     end if
 
     ! Restart phenological variables used for flowering date
-    if (DOY == 274) Then
+    if (DOY == DOYPhen4) Then
         ChillingHours = 0.0
         ThermalTime = 0.0
     end if
@@ -53,16 +53,16 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     if(DOY .LT. DOYPhen1) Then
         PhenStage = 1
         residues = 0
-    !else if(DOY .LT. DOYPhen2) Then
-    else if((ChillingHours < ColdRequirement .OR. ThermalTime < ThermalTimeRequirement) .AND. DOY < DOYPhen3) then
+    else if(DOY .LT. DOYPhen2) Then
+    !else if((ChillingHours < ColdRequirement .OR. ThermalTime < ThermalTimeRequirement) .AND. DOY < DOYPhen3) then
         PhenStage = 2
         residues = 0
-    !else if(DOY .LT. DOYPhen3) Then
-    else if(ChillingHours > ColdRequirement .AND. ThermalTime > ThermalTimeRequirement .AND. DOY < DOYPhen3) then
+    else if(DOY .LT. DOYPhen3) Then
+    !else if(ChillingHours > ColdRequirement .AND. ThermalTime > ThermalTimeRequirement .AND. DOY < DOYPhen3) then
         PhenStage = 3
         residues = 0
-    !else if(DOY .LT. DOYPhen4) Then
-    else if(DOY .GE. DOYPhen3 .AND. DOY .LT. DOYPhen4) Then
+    else if(DOY .LT. DOYPhen4) Then
+    !else if(DOY .GE. DOYPhen3 .AND. DOY .LT. DOYPhen4) Then
         PhenStage = 4
         residues = 0
     else if(DOY == DOYPhen4) Then
@@ -160,6 +160,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
             end if
         End Do
         ChillingHours = ChillingHours + ChillingHours_day
+        IF(ChillingHours < 0.0) ChillingHours = 0.0 ! They cannot be negative according to this model
     else if(ChillingHours > ColdRequirement .AND. ThermalTime < ThermalTimeRequirement) Then
         ! Code to update thermal time. Parameter based on daily average temperature, so use that
         ThermalTime = ThermalTime + max(sum(Tair(1:KHRS))/KHRS - Phen_Tb, 0.0)
@@ -251,7 +252,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     if(PhenStage == 1) ReservesT = Reserves
 
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss, sum(Tair(1:KHRS))/KHRS)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP

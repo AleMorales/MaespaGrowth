@@ -11,7 +11,7 @@ SRCS =	default_conditions.f90 switches.f90 getmet.f90 maindeclarations.f90 \
 
 OBJS =	default_conditions.o switches.o getmet.o maindeclarations.o initialize.o \
         inout.o growth_module.o maespa_growth.o maespa.o maestcom.o metcom.o physiol.o radn.o \
-	    unstor.o utils.o watbal.o
+	unstor.o utils.o watbal.o
 
 LIBS =	
 
