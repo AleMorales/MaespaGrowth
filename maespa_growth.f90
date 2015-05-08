@@ -1,7 +1,7 @@
 Program maespa_growth
 Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
-Use growth_module ! This containts the parameter and state variables and the growth module
+Use growth_module ! This contains parameters and state variables
 Implicit None
 Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, residues
 Integer          :: Year, Doy, PhenStage, i
@@ -215,7 +215,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Assimilation = (totCO2(1) + totRespf(1))/d_alley/d_row*12.0
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
     RmD          = sum((Biomass_leaf*RmRef_leaf + min(Biomass_stem, Biomass_leaf*ActiveWood)*RmRef_stem + Biomass_froots*RmRef_froots + min(Biomass_croots, Biomass_froots*ActiveWood)*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS
-! Source-limited maintenanced respiration
+! Source-limited maintenance respiration
     If(RmD > Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres) Then
       RmD = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
 ! Pool of assimilates (g C (m ground)-2)
@@ -224,6 +224,19 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
       Pool = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres - RmD
     end if
 ! Update the state variables
+
+! Fruit biomass (g dm (m ground)-2)
+! It may optionally be sink-limited (FruitOpt == 1) which alters the allocation coefficients (the rest will increase)
+    if(FruitOpt == 1 .AND. Pool*Allocation_fruits*PV_fruits > FruitMax) then
+      Biomass_fruits = Biomass_fruits + FruitMax
+      Allocation_fruits = (FruitMax/PV_fruits)/Pool
+      Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
+      Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
+      Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
+      Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
+    else
+      Biomass_fruits = Biomass_fruits + Pool*Allocation_fruits*PV_fruits
+    end if
 ! Leaf biomass (g dm (m ground)-2)
     Biomass_leaf = Biomass_leaf + Pool*Allocation_leaf*PV_leaf - senescence*biomass_leaf2T/(DOYsenescence2 - DOYsenescence1)
     biomass_leaf0  = biomass_leaf0 + Pool*Allocation_leaf*PV_leaf
@@ -247,7 +260,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Biomass_froots = Biomass_froots + Pool*Allocation_froots*PV_froots - Biomass_froots*Kroots
     root_loss      = Biomass_froots*Kroots
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
-    Biomass_fruits = Biomass_fruits + Pool*Allocation_fruits*PV_fruits
     Reserves       = Reserves       + Pool*Allocation_reserves*PVres  - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)
     if(PhenStage == 1) ReservesT = Reserves
 
