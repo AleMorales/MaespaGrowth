@@ -4,6 +4,8 @@ USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1
 Use growth_module ! This contains parameters and state variables
 Implicit None
 Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, residues
+double precision, dimension(100) :: Tair_deWit
+double precision :: deWit
 Integer          :: Year, Doy, PhenStage, i
 Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
@@ -144,16 +146,19 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Note that this code will update the arrays containing weather information, so all calculations dependent on temperature should appear afterwards.
     call run_maespa
 
+    ! Recover Tmax and Tmin from diurnal disaggregation
+    ! Compute the air temperature from the sine wave model
+    Tair_deWit = deWit(DayLength, TmaxDay, TminDay, 100)
     ! Update chilling hours
     if(ChillingHours < ColdRequirement) Then
         ! Code to update chilling hours
         ChillingHours_day = 0
         Do i = 1, KHRS ! KHRS are the number of steps within a day (e.g 48 -> dt = 0.5 h)
-            if(Tair(i) > 0.0 .AND. Tair(i) .LE. Phen_T0) Then
-                ChillingHours_day = ChillingHours_day + Tair(i)/Phen_T0*24.0/KHRS ! Note 24.0 and not 24 to coerce to floating point.
-            else if (Tair(i) .LE. Phen_Tx) Then
-                ChillingHours_day = ChillingHours_day + (1.0 - (Tair(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/KHRS
-            else if (Tair(i) > Phen_Tx) Then
+            if(Tair_deWit(i) > 0.0 .AND. Tair_deWit(i) .LE. Phen_T0) Then
+                ChillingHours_day = ChillingHours_day + Tair_deWit(i)/Phen_T0*24.0/KHRS ! Note 24.0 and not 24 to coerce to floating point.
+            else if (Tair_deWit(i) .LE. Phen_Tx) Then
+                ChillingHours_day = ChillingHours_day + (1.0 - (Tair_deWit(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/KHRS
+            else if (Tair_deWit(i) > Phen_Tx) Then
                 ChillingHours_day = ChillingHours_day + Phen_a*24.0/KHRS
             else
                 ChillingHours_day = ChillingHours_day
@@ -163,7 +168,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         IF(ChillingHours < 0.0) ChillingHours = 0.0 ! They cannot be negative according to this model
     else if(ChillingHours > ColdRequirement .AND. ThermalTime < ThermalTimeRequirement) Then
         ! Code to update thermal time. Parameter based on daily average temperature, so use that
-        ThermalTime = ThermalTime + max(sum(Tair(1:KHRS))/KHRS - Phen_Tb, 0.0)
+        ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_Tb, 0.0)
     end if
 ! Carbon allocation
     Select Case (PhenStage)
@@ -271,7 +276,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     if(PhenStage == 1) ReservesT = Reserves
 
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss, sum(Tair(1:KHRS))/KHRS)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss, (TminDay + TmaxDay)/2.0)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
@@ -286,3 +291,29 @@ call maespa_finalize
 call growth_finalize
 
 End Program maespa_growth
+
+
+double precision function deWit(DayLength, Tmax, Tmin, n)
+  Implicit None
+  double precision, intent(in) :: DayLength, Tmax, Tmin
+  integer, intent(in) :: n
+  double precision :: Tair(n)
+  double precision :: sunrise, sunset, time
+  integer :: i
+  double precision, parameter :: pi = 3.14159265359
+  ! Time of sunrise and sunset
+  sunrise = 12.0 - DayLength/2.0
+  sunset = 12.0 + DayLength/2.0
+  ! Calculate temperature
+  Do i = 1,n
+    ! Time of the day (h)
+    time = real(i)/real(n)*24.0
+    If (time < sunrise) Then
+      Tair(i) = (Tmax + Tmin)/2.0 + (Tmax - Tmin)/2.0*cos(pi*(time + 10.0)/(10.0 + sunrise))
+    else if (time > 14.0) then
+      Tair(i) = (Tmax + Tmin)/2.0 + (Tmax - Tmin)/2.0*cos(pi*(time - 14.0)/(10.0 + sunrise))
+    else
+      Tair(i) = (Tmax + Tmin)/2.0 - (Tmax - Tmin)/2.0*cos(pi*(time - sunrise)/(14.0 - sunrise))
+    end if
+  End Do
+End Function deWit

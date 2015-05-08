@@ -2,6 +2,7 @@ Module growth_module
 Implicit None
 INTEGER :: IOERROR
 double precision :: RmRef_leaf, RmRef_stem, RmRef_froots, RmRef_croots, RmRef_fruits, PC_leaf, PC_stem, PC_froots, PC_croots, RF_leaf, RF_stem, RF_froots, RF_croots, PV_leaf, PV_stem, PV_froots, PV_croots, CC_leaf, CC_stem, CC_froots, CC_croots, LAD, Q10, cp,Hmax, Kroots, CCfr, CCoil, RFfr, RFoil, PGoil, PGfr, Kf, PVfr, PVoil, FractionReproductive, OneLeaf,  PVres, CCres, PCfr, PCoil, d_alley, d_row, Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Volume, LAI, H, Rx, Ry, Reserves, ReservesT, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2, Biomass_leaf2T, specific_leaf_area, RmRef_reserves, ColdRequirement, ThermalTimeRequirement, Phen_T0, Phen_Tx, Phen_a, Phen_Tb, ChillingHours, ThermalTime, ActiveWood, FruitMax, MaxPhotos
+double precision :: TMaxDay, TMinDay, DayLength
 integer :: OptPrun, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, Adult, DOYsenescence1, DOYsenescence2, Age, FruitOpt, WinterOpt
 character(LEN = 10) :: DensOpt, OptFruit
 
@@ -55,8 +56,7 @@ subroutine write_growth_outputs(Year, DOY, Assimilation, RmD, aPAR, PAR, residue
 USE maestcom, only: out_growth
 Implicit None
 integer, intent(in) :: Year, DOY
-double precision, intent(in) :: Assimilation, RmD, aPAR, residues, root_loss
-real(4), intent(in) :: Tavg
+double precision, intent(in) :: Assimilation, RmD, aPAR, residues, root_loss, Tavg
 real, intent(in) :: PAR
 	Write(out_growth, '(I2,3x,I3,2x,21(ES16.6E3,3x))') Year, DOY, Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry, Assimilation, RmD, Biomass_leaf2T, residues, root_loss, aPAR, PAR, ChillingHours, ThermalTime, Tavg
 end subroutine
