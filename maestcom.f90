@@ -1,19 +1,19 @@
 MODULE maestcom
     IMPLICIT NONE
-    
-    CHARACTER(LEN=3), PARAMETER :: format_ascii = 'asc' 
+
+    CHARACTER(LEN=3), PARAMETER :: format_ascii = 'asc'
     CHARACTER(LEN=3), PARAMETER :: format_binary = 'bin'
-    
+
     ! Maximum dimensions of arrays
-    INTEGER, PARAMETER :: MAXT = 1500        ! Maximum no. of trees in plot
-    INTEGER, PARAMETER :: MAXLAY = 15         ! Maximum no. of layers for radiation
+    INTEGER, PARAMETER :: MAXT = 150        ! Maximum no. of trees in plot
+    INTEGER, PARAMETER :: MAXLAY = 10         ! Maximum no. of layers for radiation
     INTEGER, PARAMETER :: MAXSOILLAY = 100    ! Maximum no. of layers of soil (RAD)
-    INTEGER, PARAMETER :: MAXSP = 3          ! Maximum no. of species (RAD).
-    INTEGER, PARAMETER :: MAXP = 1500        ! Maximum no. of gridpoints -- MUST BE EQUAL TO OR LARGER THAN MAXT !!!!
-    INTEGER, PARAMETER :: MAXC = 3            ! Maximum no. of leaf area distributions
-    INTEGER, PARAMETER :: MAXANG = 20          ! Maximum no. of zenith & leaf angles
+    INTEGER, PARAMETER :: MAXSP = 1          ! Maximum no. of species (RAD).
+    INTEGER, PARAMETER :: MAXP = 200        ! Maximum no. of gridpoints -- MUST BE EQUAL TO OR LARGER THAN MAXT !!!!
+    INTEGER, PARAMETER :: MAXC = 1            ! Maximum no. of leaf area distributions
+    INTEGER, PARAMETER :: MAXANG = 10          ! Maximum no. of zenith & leaf angles
     INTEGER, PARAMETER :: MAXD = 13           ! For resp prog
-    INTEGER, PARAMETER :: MAXDATE = 400      ! Maximum no. of dates for tree or physiol parameters
+    INTEGER, PARAMETER :: MAXDATE = 1      ! Maximum no. of dates for tree or physiol parameters
     !INTEGER, PARAMETER :: maxdate = 5        ! Maximum no. of dates for physiol parameters
     !INTEGER, PARAMETER :: MAXMET = 18         ! Maximum columns in met data file
     ! changed by mgdk, just to try and compile, not 18 but MHET has 20?!!
@@ -65,7 +65,7 @@ MODULE maestcom
     REAL, PARAMETER :: CPERDW = 0.5        ! fraction per DW
     REAL, PARAMETER :: VONKARMAN = 0.41    ! von Karman's constant
     REAL, PARAMETER :: GRAV = 9.8067       ! Gravitational acceleration
-      
+
     ! Numbers of I/O units
     INTEGER, PARAMETER :: UCONTROL = 1        ! Confile.dat
     INTEGER, PARAMETER :: UTREES = 2          ! Trees.dat
@@ -102,8 +102,8 @@ MODULE maestcom
     INTEGER, PARAMETER :: UDAYHDR = 35        ! Dayflx_hdr.asc
     INTEGER, PARAMETER :: UMET = 36            ! Met.dat
     INTEGER, PARAMETER :: UTUTD = 37           ! Tutd.dat
-    INTEGER, PARAMETER :: UHRLYHDR = 38 
-    INTEGER, PARAMETER :: ULAYHDR = 39 
+    INTEGER, PARAMETER :: UHRLYHDR = 38
+    INTEGER, PARAMETER :: ULAYHDR = 39
     INTEGER, PARAMETER :: UHISTHDR = 40
     INTEGER, PARAMETER :: URESPHRHDR = 41
     INTEGER, PARAMETER :: UWATBALHDR = 42
@@ -114,8 +114,8 @@ MODULE maestcom
     INTEGER, PARAMETER :: UWATDAYHDR = 47
     INTEGER, PARAMETER :: URESPHDR = 48
     INTEGER, PARAMETER :: USUNLA = 49    ! modification Mathias 27/11/12
-    INTEGER, PARAMETER :: USWPLAY = 50    ! modification Mathias décembre 2012
-    INTEGER, PARAMETER :: UGROWTH = 51  ! modification A. Morales February 2014    
+    INTEGER, PARAMETER :: USWPLAY = 50    ! modification Mathias dï¿½cembre 2012
+    INTEGER, PARAMETER :: UGROWTH = 51  ! modification A. Morales February 2014
     Integer, Parameter :: out_growth = 52
 
     ! Flags passed to error handling subroutine
@@ -134,7 +134,7 @@ MODULE maestcom
     INTEGER, PARAMETER :: INORMAL = 0         ! Maestra, Maeshr
     INTEGER, PARAMETER :: ITEST = 1           ! Maestest
 
-	  
+
     !COMMON /HRS/ HHRS, KHRS, SPERHR ! Make KHRS and HHRS available throughout the program
 !    INTEGER, PARAMETER :: KHRS = 24                  ! Number of time intervals in a day
 !    REAL, PARAMETER :: HHRS = (KHRS) / 2.0           ! Half a day length
