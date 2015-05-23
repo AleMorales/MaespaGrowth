@@ -17,9 +17,10 @@ LIBS =
 
 INCLS = 
 
-F90 = gfortran
+# In Windows we have to use fullpath (even though gfortran is recognized by the command line, make cannot find it!)
+F90 = D:\\UserData\\moral005\\Rtools\\gcc-4.6.3\\bin\\gfortran.exe
 
-FFLAGS = -finit-local-zero -Wuninitialized -ffree-form -ffree-line-length-none -O3
+FFLAGS = -g -fbounds-check -finit-local-zero -Wuninitialized -ftrapv -ffree-form -ffree-line-length-none -O3
 
 all: $(PROG)
 
@@ -33,7 +34,7 @@ clean:
 
 .f90.o:
 	$(F90) $(FFLAGS) -c $<
-
+	
 default_conditions.o: switches.o
 getmet.o: maestcom.o metcom.o switches.o
 maindeclarations.o: maestcom.o
