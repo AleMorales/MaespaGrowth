@@ -12,8 +12,8 @@ double precision, parameter :: pi = 3.14159265359
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
 call maespa_initialize
-WSOILMETHOD = 1 ! Just to make sure
-ISMAESPA = .FALSE. ! Just to make sure
+WSOILMETHOD = 1 ! Just to make sure we are using Maestra and not Maespa
+ISMAESPA = .FALSE. ! Just to make sure we are using Maestra and not Maespa
 ! This reads all the input files for the growth equations
 call read_growth_inputs
 
@@ -41,11 +41,6 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         senescence = 0.0
     end if
 
-    ! Restart phenological variables used for flowering date
-    if (DOY == DOYPhen4) Then
-        ChillingHours = 0.0
-        ThermalTime = 0.0
-    end if
 
     ! Phenological stages plus harvest/pruning.
     ! Note that thermaltime and chilling hours are calculated after this code, so they refer to the previous day of simulation
@@ -69,6 +64,8 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         residues = 0
     else if(DOY == DOYPhen4) Then
         PhenStage = 1
+        ChillingHours = 0.0
+        ThermalTime = 0.0
         Biomass_fruits = 0.0 ! Harvest
         ! Give the opportunity of not having pruning
         if(OptPrun == 1) Then
@@ -146,8 +143,9 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Note that this code will update the arrays containing weather information, so all calculations dependent on temperature should appear afterwards.
     call run_maespa
 
-    ! Recover Tmax and Tmin from diurnal disaggregation
-    ! Compute the air temperature from the sine wave model
+! CALCULATE Chilling hours and thermal time
+! Recover Tmax and Tmin from diurnal disaggregation
+! Compute the air temperature from the sine wave model
     Tair_deWit = deWit(DayLength, TmaxDay, TminDay, 100)
     ! Update chilling hours
     if(ChillingHours < ColdRequirement) Then
@@ -170,6 +168,8 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         ! Code to update thermal time. Parameter based on daily average temperature, so use that
         ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_Tb, 0.0)
     end if
+
+
 ! Carbon allocation
     Select Case (PhenStage)
         Case (1)
