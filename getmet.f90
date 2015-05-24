@@ -1765,13 +1765,13 @@ Day: do I = 1,KHRS
      else
        Tair(I) = Tmin - 0.5/Ik + 0.5*sqrt(1/Ik**2 + 4*(Tmax - Tmin)*(1/Ik + Tmax - Tmin)*S)
      endif
+  else if(time > sunset) Then
+    ! Get the temperature the closest to sunset (Tss, �C). This variable will be replaced with the temperature until we go over the sunset
+    Tss = Tair(I - 1)
+    ! and break out of the loop
+    exit Day
    endif
-! Get the temperature the closest to sunset (Tss, �C). This variable will be replaced with the temperature until we go over the sunset
-     if(time - 24/KHRS < sunset) then
-       Tss = Tair(I - 1)
-     endif
 enddo Day
-
 ! Loop through nightime and calculate air temperature (Tair, �C) at each time of the night
 Night: do I = 1,KHRS
 ! Calculates the time of the day (h).
