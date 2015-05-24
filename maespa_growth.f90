@@ -7,7 +7,6 @@ Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Alloca
 double precision, dimension(100) :: Tair_deWit
 double precision :: deWit
 Integer          :: Year, Doy, PhenStage, i
-Logical :: pruning
 double precision, parameter :: pi = 3.14159265359
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
@@ -68,67 +67,11 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         ChillingHours = 0.0
         ThermalTime = 0.0
         Biomass_fruits = 0.0 ! Harvest
-        ! Give the opportunity of not having pruning
-        if(OptPrun == 1) Then
-            ! Pruning for high density orchards is always applied but differs when H > Hmax or H <= Hmax
-            if(trim(DensOpt) == 'H') Then
-            ! Prunning may want to control maximum height
-                if(H > Hmax) Then
-                    H = Hmax
-                    Volume = Hmax*Rx*Ry*4.0/3.0/2.0*pi
-                    Rx = min((0.75*Volume/cp/pi)**(1.0/3.0), d_alley/3.0)
-                    Ry = min((0.75*Volume/cp/pi)**(1.0/3.0), d_row/2.0)
-                    Volume = Hmax*Rx*Ry*4.0/3.0/2.0*pi ! Because Rx and Ry may be limited by tree spacing
-                end if
-            ! Calculate LADv and prune LAD if bigger. Use empirical rule from Orgaz et al. (2007)
-                if(Volume/(D_row*D_alley) < 0.5) then
-                    LADv = 2.0
-                else
-                    LADv = 2.0 - 0.8*(Volume/(d_row*d_alley) - 0.5)/1.5
-                end if
-                if(LAD > LADv) LAD = LADv
-            ! Update all state variables and canopy dimensions
-                LAI = Volume/(d_alley*d_row)*LAD
-                cohort0 = biomass_leaf0/biomass_leaf
-                cohort1 = biomass_leaf1/biomass_leaf
-                cohort2 = biomass_leaf2/biomass_leaf
-                ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
-                ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
-                residues = Biomass_leaf - LAI/specific_leaf_area
-                Biomass_leaf = LAI/specific_leaf_area
-                Biomass_leaf0 = cohort0*Biomass_leaf
-                Biomass_leaf1 = cohort1*Biomass_leaf
-                Biomass_leaf2 = cohort2*Biomass_leaf
-                if(1.0/ratio_leaf_stem > ActiveWood) then
-                  residues = residues + Biomass_stem - Biomass_leaf*ActiveWood
-                  Biomass_stem = Biomass_leaf*ActiveWood
-                end if
-                residues = residues + Biomass_froots - Biomass_leaf/ratio_leaf_froots
-                Biomass_froots = Biomass_leaf/ratio_leaf_froots
-            ! Prunning for super-high density orchards only applied when H > Hmax
-            else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
-            ! Update all state variables and canopy dimensions
-                H = Hmax
-                Volume = Hmax*4.0*Rx*Ry
-                Rx = min((0.125*Volume/cp)**(1.0/3.0), d_alley/3.0)
-                Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)
-                Volume = Hmax*4.0*Rx*Ry ! Because Rx and Ry may be limited by tree spacing
-                LAI = Volume*LAD/d_alley/d_row
-                cohort0 = biomass_leaf0/biomass_leaf
-                cohort1 = biomass_leaf1/biomass_leaf
-                cohort2 = biomass_leaf2/biomass_leaf
-                ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
-                ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
-                residues = Biomass_leaf - LAI/specific_leaf_area
-                Biomass_leaf = LAI/specific_leaf_area
-                Biomass_leaf0 = cohort0*Biomass_leaf
-                Biomass_leaf1 = cohort1*Biomass_leaf
-                Biomass_leaf2 = cohort2*Biomass_leaf
-                residues = residues + Biomass_stem - Biomass_leaf/ratio_leaf_stem + Biomass_froots - Biomass_leaf/ratio_leaf_froots
-                Biomass_stem = Biomass_leaf/ratio_leaf_stem
-                Biomass_froots = Biomass_leaf/ratio_leaf_froots
-            end if
-        end if
+        If (OptPrun == 1) Then
+          Call Pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
+                       Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
+                       ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
+        End If
     else if (DOY .GT. DOYPhen4) then
         PhenStage = 1
     end if
@@ -338,3 +281,71 @@ subroutine thermal_time(DayLength, TmaxDay, TminDay, n, ColdRequirement, Chillin
       ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFr, 0.0)
   end if
 end subroutine thermal_time
+
+
+subroutine pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
+                   Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
+                   ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
+  ! Arguments
+  character(LEN = 10), intent(in) :: DensOpt
+  double precision, intent(in) :: D_row, D_alley, specific_leaf_area, ActiveWood, cp
+  double precision, intent(inout) :: Biomass_leaf, Biomass_stem, Biomass_froots, &
+                                     Biomass_leaf0, Biomass_leaf1, Biomass_leaf2, &
+                                     H, Hmax, Rx, Ry, Volume, LAI, LAD
+  ! Local variables
+  double precision :: cohort0, cohort1, cohort2, ratio_leaf_stem, ratio_leaf_froots, &
+                      LADv
+  ! Pruning for high density orchards is always applied but differs when H > Hmax or H <= Hmax
+  if(trim(DensOpt) == 'H') Then
+  ! Prunning may want to control maximum height
+      if(H > Hmax) Then
+          H = Hmax
+          Volume = Hmax*Rx*Ry*4.0/3.0/2.0*pi
+          Rx = min((0.75*Volume/cp/pi)**(1.0/3.0), d_alley/3.0)
+          Ry = min((0.75*Volume/cp/pi)**(1.0/3.0), d_row/2.0)
+          Volume = Hmax*Rx*Ry*4.0/3.0/2.0*pi ! Because Rx and Ry may be limited by tree spacing
+      end if
+  ! Calculate LADv and prune LAD if bigger. Use empirical rule from Orgaz et al. (2007)
+      if(Volume/(D_row*D_alley) < 0.5) then
+          LADv = 2.0
+      else
+          LADv = 2.0 - 0.8*(Volume/(d_row*d_alley) - 0.5)/1.5
+      end if
+      if(LAD > LADv) LAD = LADv
+  ! Update all state variables and canopy dimensions
+      LAI = Volume/(d_alley*d_row)*LAD
+      cohort0 = biomass_leaf0/biomass_leaf
+      cohort1 = biomass_leaf1/biomass_leaf
+      cohort2 = biomass_leaf2/biomass_leaf
+      ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
+      ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
+      Biomass_leaf = LAI/specific_leaf_area
+      Biomass_leaf0 = cohort0*Biomass_leaf
+      Biomass_leaf1 = cohort1*Biomass_leaf
+      Biomass_leaf2 = cohort2*Biomass_leaf
+      if(1.0/ratio_leaf_stem > ActiveWood) then
+        Biomass_stem = Biomass_leaf*ActiveWood
+      end if
+      Biomass_froots = Biomass_leaf/ratio_leaf_froots
+  ! Prunning for super-high density orchards only applied when H > Hmax
+  else if (trim(DensOpt) == 'SH' .AND. H > Hmax) Then
+  ! Update all state variables and canopy dimensions
+      H = Hmax
+      Volume = Hmax*4.0*Rx*Ry
+      Rx = min((0.125*Volume/cp)**(1.0/3.0), d_alley/3.0)
+      Ry = min((0.125*Volume/cp)**(1.0/3.0), d_row/2.0)
+      Volume = Hmax*4.0*Rx*Ry ! Because Rx and Ry may be limited by tree spacing
+      LAI = Volume*LAD/d_alley/d_row
+      cohort0 = biomass_leaf0/biomass_leaf
+      cohort1 = biomass_leaf1/biomass_leaf
+      cohort2 = biomass_leaf2/biomass_leaf
+      ratio_leaf_stem   =    Biomass_leaf/Biomass_stem
+      ratio_leaf_froots   =    Biomass_leaf/Biomass_froots
+      Biomass_leaf = LAI/specific_leaf_area
+      Biomass_leaf0 = cohort0*Biomass_leaf
+      Biomass_leaf1 = cohort1*Biomass_leaf
+      Biomass_leaf2 = cohort2*Biomass_leaf
+      Biomass_stem = Biomass_leaf/ratio_leaf_stem
+      Biomass_froots = Biomass_leaf/ratio_leaf_froots
+  end if
+end subroutine pruning
