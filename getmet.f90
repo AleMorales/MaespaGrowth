@@ -612,7 +612,7 @@ SUBROUTINE GETMETDAY(IDATE,ZEN,NOMETCOLS,METCOLS,CAK,PRESSK,SWMIN,SWMAX,DELTAT,A
 
     TMaxDay = TMAX
     TMinDay = TMIN
-    DayLength = DAYL
+    DayLength = DAYL/(KHRS/24.0)
 
     RETURN
 END SUBROUTINE GETMETDAY
@@ -1745,16 +1745,18 @@ Integer :: I
 Real, intent(in) :: TMAX,TMIN,DAYL,taun, p1, p2, Ik
 Real, intent(out) :: TAIR(MAXHRS)
 Real :: HRTIME,TIME, S, sunset, sunrise, Tss
+Real :: DayLength
 ! Time of sunrise and sunset (h)
-sunrise = 12.0 - DAYL/2.0
-sunset = 12.0 + DAYL/2.0
+DayLength = DAYL/(KHRS/24.0)
+sunrise = 12.0 - DayLength/2.0
+sunset = 12.0 + DayLength/2.0
 
 ! Loop through daytime and calculate air temperature (Tair, �C) at each time of the day
 Day: do I = 1,KHRS
 ! Calculates the time of the day (h).
    time = real(I)/KHRS*24
 ! Calculate the function S (relative variation of temperature during daytime)
-   S = sin(pi*(time  - p1 - 12.0 + DAYL/2.0)/(DAYL + 2.0*p2))
+   S = sin(pi*(time  - p1 - 12.0 + DayLength/2.0)/(DayLength + 2.0*p2))
 ! And now calculate temperature during the day
    if(time > sunrise +  p1 .AND. time < sunset) then
 ! When we do not consider the effect of buoyancy (I�k, �C�1). In theory Ik = 0, but to avoid floating-point errors is better to give a negative value.
@@ -1765,19 +1767,19 @@ Day: do I = 1,KHRS
      else
        Tair(I) = Tmin - 0.5/Ik + 0.5*sqrt(1/Ik**2 + 4*(Tmax - Tmin)*(1/Ik + Tmax - Tmin)*S)
      endif
-  else if(time > sunset) Then
+  else if (time > sunset) Then
     ! Get the temperature the closest to sunset (Tss, �C). This variable will be replaced with the temperature until we go over the sunset
     Tss = Tair(I - 1)
     ! and break out of the loop
-    exit Day
-   endif
+    exit
+  endif
 enddo Day
 ! Loop through nightime and calculate air temperature (Tair, �C) at each time of the night
 Night: do I = 1,KHRS
 ! Calculates the time of the day (h).
    time = real(I)/KHRS*24.0
 ! Calculate the function S (relative variation of temperature during daytime)
-   S = sin(pi*(time  - p1 - 12 + DAYL/2.0)/(DAYL + 2.0*p2))
+   S = sin(pi*(time  - p1 - 12 + DayLength/2.0)/(DayLength + 2.0*p2))
 ! And now calculate temperature during the night
    if(time > sunset .OR. time < sunrise +  p1) then
 ! To make sure that it always counts the hours since sunset, especially after midnight
@@ -1785,7 +1787,7 @@ Night: do I = 1,KHRS
        time = time + 24.0
      endif
 ! Exponential decay of air temperature. Parameter taun (h) is the time coefficient.
-     Tair(I) = (Tmin - Tss*exp(-(24.0 - DAYL)/taun) + (Tss - Tmin)*exp(-(time - sunset)/taun))/(1.0 - exp(-(24.0 - DAYL)/taun))
+     Tair(I) = (Tmin - Tss*exp(-(24.0 - DayLength)/taun) + (Tss - Tmin)*exp(-(time - sunset)/taun))/(1.0 - exp(-(24.0 - DayLength)/taun))
    endif
 enddo Night
 RETURN
