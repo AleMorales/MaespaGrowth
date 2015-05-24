@@ -5,7 +5,6 @@ Use growth_module ! This contains parameters and state variables
 Implicit None
 Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, residues
 double precision, dimension(100) :: Tair_deWit
-double precision :: deWit
 Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage
 double precision, parameter :: pi = 3.14159265359
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
