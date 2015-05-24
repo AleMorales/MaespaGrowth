@@ -90,7 +90,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Reserves = Reserves - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
   Else
     Pool = Assimilation + Reserves*Kreallocation
-    Reserves = Reserves(1.0 - Kreallocation)
+    Reserves = Reserves*(1.0 - Kreallocation)
   End If
 
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
