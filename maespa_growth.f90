@@ -6,7 +6,7 @@ Implicit None
 Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, residues
 double precision, dimension(100) :: Tair_deWit
 double precision :: deWit
-Integer          :: Year, Doy, PhenStage, i
+Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage
 double precision, parameter :: pi = 3.14159265359
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
@@ -72,10 +72,15 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 
 ! Carbon allocation when using fixed phenology
   If(PhenSim == 0) Then
-    Call Calc_PC(PhenStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
+    Call Calc_PC_Fixed(PhenStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
                        Allocation_froots, Allocation_croots, Allocation_reserves, &
                        reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
-                       PV_fruits, PVfr, PVoil)
+                       PV_fruits, PVfr, PVoil, Age, Adult)
+  Else
+    Call Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
+                       Allocation_froots, Allocation_croots, Allocation_reserves, &
+                       reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
+                       PV_fruits, PVfr, PVoil, Age, Adult)
   End If
 
 ! Pool of assimilates produce on a given day (g C (m2 ground)-2)
@@ -84,13 +89,12 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Management of reserves and creation of daily pool (g C (m ground)-2)
 ! Reserve management depends on how we calculate phenology
   if(PhenSim == 0 .AND. PhenStage == 1) ReservesT = Reserves
-  Reserves = Reserves + Pool*Allocation_reserves*PVres
   If(PhenSim == 0 .AND. DOY >= DOYPhen1 .AND. DOY <=  DOYPhen2) Then
     Pool = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
     Reserves = Reserves - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
   Else
-    Pool = Assimilation + Reserves*Kreallocation
-    Reserves = Reserves*(1.0 - Kreallocation)
+    Pool = Assimilation + reallocation*Reserves*Kreallocation
+    Reserves = Reserves*reallocation*(1.0 - Kreallocation)
   End If
 
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
@@ -150,7 +154,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Biomass_froots = Biomass_froots + Pool*Allocation_froots*PV_froots - Biomass_froots*Kroots
     root_loss      = Biomass_froots*Kroots
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
-
+    Reserves = Reserves + Pool*Allocation_reserves*PVres
 ! Write state variables and fluxes to the output
     Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss, (TminDay + TmaxDay)/2.0)
 
@@ -303,13 +307,65 @@ subroutine pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LA
   end if
 end subroutine pruning
 
-
-subroutine Calc_PC(PhenStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
+subroutine Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
                    Allocation_froots, Allocation_croots, Allocation_reserves, &
                    reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
-                   PV_fruits, PVfr, PVoil)
+                   PV_fruits, PVfr, PVoil, Age, Adult)
+
   ! Arguments
-  integer, intent(in) :: PhenStage
+  integer, intent(in) :: FruitStage, VegStage, Age, Adult
+  double precision, intent(in) :: PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
+                                  PVfr, PVoil
+  double precision, intent(out) :: Allocation_fruits, Allocation_leaf, Allocation_stem, &
+                                   Allocation_froots, Allocation_croots, Allocation_reserves, &
+                                   reallocation, PV_fruits
+
+  ! Fruit growth
+  If(Age >= Adult) Then
+    If(FruitStage == 4) Then
+      Allocation_fruits  = PCfr
+      PV_fruits = PVfr
+    Else If(FruitStage == 5) Then
+      Allocation_fruits  = PCoil
+      PV_fruits = PVoil
+    End if
+  Else
+    Allocation_fruits  = 0.0
+  End If
+
+  ! Vegetative Growth
+  If(VegStage == 1) Then
+    Allocation_leaf = PC_leaf
+    Allocation_stem = PC_stem
+    Allocation_froots = PC_froots
+    Allocation_croots = PC_croots
+    Allocation_reserves = 0.0
+    reallocation        = 1.0
+  ! Reserve accumulation (i.e. winter) only when neither fruit nor veg grow
+  Else If(FruitStage <= 3) Then
+    Allocation_leaf = 0.0
+    Allocation_stem = 0.0
+    Allocation_froots = 0.0
+    Allocation_croots = 0.0
+    Allocation_reserves = 1.0
+    reallocation        = 0.0
+  Else
+    Allocation_leaf = 0.0
+    Allocation_stem = 0.0
+    Allocation_froots = 0.0
+    Allocation_croots = 0.0
+    Allocation_reserves = 0.0
+    reallocation        = 1.0
+  End If
+
+end subroutine Calc_PC_Phen
+
+subroutine Calc_PC_Fixed(PhenStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
+                   Allocation_froots, Allocation_croots, Allocation_reserves, &
+                   reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
+                   PV_fruits, PVfr, PVoil, Age, Adult)
+  ! Arguments
+  integer, intent(in) :: PhenStage, Age, Adult
   double precision, intent(in) :: PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
                                   PVfr, PVoil
   double precision, intent(out) :: Allocation_fruits, Allocation_leaf, Allocation_stem, &
@@ -360,7 +416,7 @@ subroutine Calc_PC(PhenStage, Allocation_fruits, Allocation_leaf, Allocation_ste
           reallocation        = 0.0
   End Select
 
-end subroutine Calc_PC
+end subroutine Calc_PC_Fixed
 
 subroutine Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage, &
                           OptPrun, DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
