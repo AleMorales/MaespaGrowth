@@ -8,7 +8,6 @@ double precision, dimension(100) :: Tair_deWit
 double precision :: deWit
 Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage
 double precision, parameter :: pi = 3.14159265359
-
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
 call maespa_initialize
 WSOILMETHOD = 1 ! Just to make sure we are using Maestra and not Maespa
@@ -45,7 +44,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
       call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
     ! Or based on thermal time and accumulation og chilling hours
     Else
-      Call Calc_Phen_Sim(ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
+      Call Calc_Phen_Sim(DOY, ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
     End If
     ! Harvest and (optional) pruning
     If (DOY == DOYHarvest) Then
@@ -180,11 +179,11 @@ call growth_finalize
 End Program maespa_growth
 
 
-double precision function deWit(DayLength, Tmax, Tmin, n)
+Subroutine deWit(DayLength, Tmax, Tmin, n, TairDeWit)
   Implicit None
   double precision, intent(in) :: DayLength, Tmax, Tmin
   integer, intent(in) :: n
-  double precision :: Tair(n)
+  double precision, dimension(n), intent(out) :: TairDeWit
   double precision :: sunrise, sunset, time
   integer :: i
   double precision, parameter :: pi = 3.14159265359
@@ -196,14 +195,14 @@ double precision function deWit(DayLength, Tmax, Tmin, n)
     ! Time of the day (h)
     time = real(i)/real(n)*24.0
     If (time < sunrise) Then
-      Tair(i) = (Tmax + Tmin)/2.0 + (Tmax - Tmin)/2.0*cos(pi*(time + 10.0)/(10.0 + sunrise))
+      TairDeWit(i) = (Tmax + Tmin)/2.0 + (Tmax - Tmin)/2.0*cos(pi*(time + 10.0)/(10.0 + sunrise))
     else if (time > 14.0) then
-      Tair(i) = (Tmax + Tmin)/2.0 + (Tmax - Tmin)/2.0*cos(pi*(time - 14.0)/(10.0 + sunrise))
+      TairDeWit(i) = (Tmax + Tmin)/2.0 + (Tmax - Tmin)/2.0*cos(pi*(time - 14.0)/(10.0 + sunrise))
     else
-      Tair(i) = (Tmax + Tmin)/2.0 - (Tmax - Tmin)/2.0*cos(pi*(time - sunrise)/(14.0 - sunrise))
+      TairDeWit(i) = (Tmax + Tmin)/2.0 - (Tmax - Tmin)/2.0*cos(pi*(time - sunrise)/(14.0 - sunrise))
     end if
   End Do
-End Function deWit
+End Subroutine deWit
 
 subroutine thermal_time(DayLength, TmaxDay, TminDay, n, ColdRequirement, ChillingHours, &
                         Phen_T0, Phen_a, Phen_Tx, ThermalTimeRequirementFl, &
@@ -215,10 +214,10 @@ subroutine thermal_time(DayLength, TmaxDay, TminDay, n, ColdRequirement, Chillin
   integer, intent(in) :: n
   double precision, intent(inout) :: ChillingHours, ThermalTime
   ! Local variables
-  double precision :: ChillingHours_day, Tair_deWit(n), deWit
+  double precision :: ChillingHours_day, Tair_deWit(n)
   integer :: i
   ! Calculate diurnal time series of air temperature assuming sine wave variation
-  Tair_deWit = deWit(DayLength, TmaxDay, TminDay, n)
+  Call deWit(DayLength, TmaxDay, TminDay, n, Tair_deWit)
   ! Accumulate chilling hours if below the requirement
   if(ChillingHours < ColdRequirement) Then
     ! Accumulate chilling hours during the dat
@@ -253,15 +252,18 @@ end subroutine thermal_time
 subroutine pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
                    Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
                    ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
+  Implicit None
   ! Arguments
   character(LEN = 10), intent(in) :: DensOpt
   double precision, intent(in) :: D_row, D_alley, specific_leaf_area, ActiveWood, cp
   double precision, intent(inout) :: Biomass_leaf, Biomass_stem, Biomass_froots, &
                                      Biomass_leaf0, Biomass_leaf1, Biomass_leaf2, &
                                      H, Hmax, Rx, Ry, Volume, LAI, LAD
+
   ! Local variables
   double precision :: cohort0, cohort1, cohort2, ratio_leaf_stem, ratio_leaf_froots, &
                       LADv
+  double precision, parameter :: pi = 3.14159265359
   ! Pruning for high density orchards is always applied but differs when H > Hmax or H <= Hmax
   if(trim(DensOpt) == 'H') Then
   ! Prunning may want to control maximum height
@@ -321,7 +323,7 @@ subroutine Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf
                    Allocation_froots, Allocation_croots, Allocation_reserves, &
                    reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
                    PV_fruits, PVfr, PVoil, Age, Adult)
-
+  Implicit None
   ! Arguments
   integer, intent(in) :: FruitStage, VegStage, Age, Adult
   double precision, intent(in) :: PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
@@ -374,6 +376,7 @@ subroutine Calc_PC_Fixed(PhenStage, Allocation_fruits, Allocation_leaf, Allocati
                    Allocation_froots, Allocation_croots, Allocation_reserves, &
                    reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
                    PV_fruits, PVfr, PVoil, Age, Adult)
+  Implicit None
   ! Arguments
   integer, intent(in) :: PhenStage, Age, Adult
   double precision, intent(in) :: PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
@@ -428,18 +431,10 @@ subroutine Calc_PC_Fixed(PhenStage, Allocation_fruits, Allocation_leaf, Allocati
 
 end subroutine Calc_PC_Fixed
 
-subroutine Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage, &
-                          OptPrun, DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
-                           Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_fruits, specific_leaf_area, &
-                           ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
-
+subroutine Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
+  Implicit None
   ! Arguments
-  character(LEN = 10), intent(in) :: DensOpt
-  double precision, intent(in) :: D_row, D_alley, specific_leaf_area, ActiveWood, cp
-  integer, intent(in) :: DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, OptPrun
-  double precision, intent(inout) :: Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_fruits, &
-                                     Biomass_leaf0, Biomass_leaf1, Biomass_leaf2, &
-                                     H, Hmax, Rx, Ry, Volume, LAI, LAD
+  integer, intent(in) :: DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4
   integer, intent(out) :: PhenStage
 
 
@@ -462,10 +457,11 @@ subroutine Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStag
 
 end subroutine Calc_Phen_Fixed
 
-subroutine Calc_Phen_Sim(ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
+subroutine Calc_Phen_Sim(DOY, ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
+  Implicit None
   ! Arguments
   double precision, intent(in) :: ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement
-  integer, intent(out) :: FruitStage, VegStage
+  integer, intent(out) :: DOYwinter1, DOYwinter2, FruitStage, VegStage, DOY
 
   If(ChillingHours < ColdRequirement) Then
     FruitStage = 1 ! Flowering buds accumulating cold
