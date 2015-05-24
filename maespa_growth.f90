@@ -3,10 +3,17 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This contains parameters and state variables
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, residues
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss
 double precision, dimension(100) :: Tair_deWit
 Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage
 double precision, parameter :: pi = 3.14159265359
+
+! Initializde some variables
+ChillingHours = 0.0
+ThermalTime = 0.0
+FruitStage = 1
+VegStage = 0
+
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
 call maespa_initialize
 WSOILMETHOD = 1 ! Just to make sure we are using Maestra and not Maespa
@@ -48,6 +55,11 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     ! Harvest and (optional) pruning
     If (DOY == DOYHarvest) Then
       Biomass_fruits = 0.0
+      If(PhenSim == 1 .AND. FruitStage > 1) Then
+        FruitStage = 1
+        ChillingHours = 0.0
+        ThermalTime = 0.0
+      End If
       if (OptPrun == 1) Then
        Call Pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
                     Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
@@ -69,7 +81,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! When simulating phenology, calculate thermal time and chilling hours
 ! This is done after calling Maespa because we use the weather data read by Maespa
   If(PhenSim == 1) Then
-    call thermal_time(DayLength, TmaxDay, TminDay, 100, ColdRequirement, ChillingHours, &
+    call thermal_time(DOY, DayLength, TmaxDay, TminDay, 100, ColdRequirement, ChillingHours, &
                   Phen_T0, Phen_a, Phen_Tx, TT1, &
                   Phen_TbFl, TT1 + TT2 + TT3 + TT4, Phen_TbFr, ThermalTime)
   End If
@@ -97,9 +109,11 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
   If(PhenSim == 0 .AND. DOY >= DOYPhen1 .AND. DOY <=  DOYPhen2) Then
     Pool = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
     Reserves = Reserves - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
+  Else If(PhenSim == 1 .AND. reallocation > 0) Then
+    Pool = Assimilation + Reserves*Kreallocation
+    Reserves = Reserves*(1.0 - Kreallocation)
   Else
-    Pool = Assimilation + reallocation*Reserves*Kreallocation
-    Reserves = Reserves*reallocation*(1.0 - Kreallocation)
+    Pool = Assimilation
   End If
 
 ! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
@@ -161,7 +175,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
     Reserves = Reserves + Pool*Allocation_reserves*PVres
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, residues, root_loss, (TminDay + TmaxDay)/2.0)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, root_loss, (TminDay + TmaxDay)/2.0, FruitStage, VegStage)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
@@ -203,23 +217,23 @@ Subroutine deWit(DayLength, Tmax, Tmin, n, TairDeWit)
   End Do
 End Subroutine deWit
 
-subroutine thermal_time(DayLength, TmaxDay, TminDay, n, ColdRequirement, ChillingHours, &
+subroutine thermal_time(DOY, DayLength, TmaxDay, TminDay, n, ColdRequirement, ChillingHours, &
                         Phen_T0, Phen_a, Phen_Tx, ThermalTimeRequirementFl, &
                         Phen_TbFl, ThermalTimeRequirementFr, Phen_TbFr, ThermalTime)
   Implicit None
   ! Arguments
   double precision, intent(in) :: DayLength, TmaxDay, TminDay, ColdRequirement, Phen_T0, Phen_a, Phen_Tx,&
                                   ThermalTimeRequirementFl, ThermalTimeRequirementFr, Phen_TbFl, Phen_TbFr
-  integer, intent(in) :: n
+  integer, intent(in) :: n, DOY
   double precision, intent(inout) :: ChillingHours, ThermalTime
   ! Local variables
   double precision :: ChillingHours_day, Tair_deWit(n)
   integer :: i
   ! Calculate diurnal time series of air temperature assuming sine wave variation
   Call deWit(DayLength, TmaxDay, TminDay, n, Tair_deWit)
-  ! Accumulate chilling hours if below the requirement
-  if(ChillingHours < ColdRequirement) Then
-    ! Accumulate chilling hours during the dat
+  ! Accumulate chilling hours if below the requirement (but only after beginning of October)
+  if(ChillingHours < ColdRequirement .AND. (DOY >= 274 .OR. DOY <= 45)) Then
+    ! Accumulate chilling hours during the day
     ChillingHours_day = 0
     Do i = 1, n
         if(Tair_deWit(i) > 0.0 .AND. Tair_deWit(i) .LE. Phen_T0) Then
@@ -332,24 +346,23 @@ subroutine Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf
                                    reallocation, PV_fruits
 
   ! Fruit growth
-  If(Age >= Adult) Then
-    If(FruitStage == 4) Then
+  If(Age >= Adult .AND. FruitStage == 4) Then
       Allocation_fruits  = PCfr
       PV_fruits = PVfr
-    Else If(FruitStage == 5) Then
+  Else If(Age >= Adult .AND. FruitStage == 5) Then
       Allocation_fruits  = PCoil
       PV_fruits = PVoil
-    End if
   Else
-    Allocation_fruits  = 0.0
+      Allocation_fruits  = 0.0
   End If
+
 
   ! Vegetative Growth
   If(VegStage == 1) Then
-    Allocation_leaf = PC_leaf
-    Allocation_stem = PC_stem
-    Allocation_froots = PC_froots
-    Allocation_croots = PC_croots
+    Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
+    Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
+    Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
+    Allocation_croots = PC_croots*(1.0 - Allocation_fruits)
     Allocation_reserves = 0.0
     reallocation        = 1.0
   ! Reserve accumulation (i.e. winter) only when neither fruit nor veg grow
@@ -466,11 +479,11 @@ subroutine Calc_Phen_Sim(DOY, ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, Co
     FruitStage = 1 ! Flowering buds accumulating cold
   Else If(ThermalTime < TT1) Then
     FruitStage = 2 ! Flowering buds accumulating temperature
-  Else If(ThermalTime < TT2) Then
+  Else If(ThermalTime < TT2 + TT1) Then
     FruitStage = 3 ! Flowering period
-  Else If(ThermalTime < TT3) Then
+  Else If(ThermalTime < TT3 + TT2 + TT1) Then
     FruitStage = 4 ! Fruits are growing (no oil accumulation yet)
-  Else If(ThermalTime < TT4) Then
+  Else If(ThermalTime < TT4 + TT3 + TT2 + TT1) Then
     FruitStage = 5 ! Fruits are growing (oil is being accumulated)
   End If
 
