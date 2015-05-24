@@ -46,7 +46,8 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     ! Note that thermaltime and chilling hours are calculated after this code, so they refer to the previous day of simulation
     ! One could think of this code happening at the beginning of each day and temperature-related and carbon allocation happening at the end of the day
     ! It also means that harvesting and pruning is done "at the beginning of the day"
-    ! Note that harvesting and vernalization start
+
+    !
     if(DOY .LT. DOYPhen1) Then
         PhenStage = 1
         residues = 0
@@ -143,33 +144,12 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Note that this code will update the arrays containing weather information, so all calculations dependent on temperature should appear afterwards.
     call run_maespa
 
-! CALCULATE Chilling hours and thermal time
-! Recover Tmax and Tmin from diurnal disaggregation
-! Compute the air temperature from the sine wave model
-    Tair_deWit = deWit(DayLength, TmaxDay, TminDay, 100)
-    ! Update chilling hours
-    if(ChillingHours < ColdRequirement) Then
-        ! Code to update chilling hours
-        ChillingHours_day = 0
-        Do i = 1, KHRS ! KHRS are the number of steps within a day (e.g 48 -> dt = 0.5 h)
-            if(Tair_deWit(i) > 0.0 .AND. Tair_deWit(i) .LE. Phen_T0) Then
-                ChillingHours_day = ChillingHours_day + Tair_deWit(i)/Phen_T0*24.0/KHRS ! Note 24.0 and not 24 to coerce to floating point.
-            else if (Tair_deWit(i) .LE. Phen_Tx) Then
-                ChillingHours_day = ChillingHours_day + (1.0 - (Tair_deWit(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/KHRS
-            else if (Tair_deWit(i) > Phen_Tx) Then
-                ChillingHours_day = ChillingHours_day + Phen_a*24.0/KHRS
-            else
-                ChillingHours_day = ChillingHours_day
-            end if
-        End Do
-        ChillingHours = ChillingHours + ChillingHours_day
-        IF(ChillingHours < 0.0) ChillingHours = 0.0 ! They cannot be negative according to this model
-    else if(ChillingHours > ColdRequirement .AND. ThermalTime < ThermalTimeRequirement) Then
-        ! Code to update thermal time. Parameter based on daily average temperature, so use that
-        ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_Tb, 0.0)
-    end if
-
-
+! When simulating phenology, calculate thermal time and chilling hours
+  If(PhenSim == 1) Then
+    call thermal_time(DayLength, TmaxDay, TminDay, 100, ColdRequirement, ChillingHours, &
+                  Phen_T0, Phen_a, Phen_Tx, ThermalTimeRequirementFl, &
+                  Phen_TbFl, ThermalTimeRequirementFr, Phen_TbFr, ThermalTime)
+  End If
 ! Carbon allocation
     Select Case (PhenStage)
         Case (1)
@@ -317,3 +297,44 @@ double precision function deWit(DayLength, Tmax, Tmin, n)
     end if
   End Do
 End Function deWit
+
+subroutine thermal_time(DayLength, TmaxDay, TminDay, n, ColdRequirement, ChillingHours, &
+                        Phen_T0, Phen_a, Phen_Tx, ThermalTimeRequirementFl, &
+                        Phen_TbFl, ThermalTimeRequirementFr, Phen_TbFr, ThermalTime)
+  Implicit None
+  ! Arguments
+  double precision, intent(in) :: DayLength, TmaxDay, TminDay, ColdRequirement, Phen_T0, Phen_a, Phen_Tx,&
+                                  ThermalTimeRequirementFl, ThermalTimeRequirementFr, Phen_TbFl, Phen_TbFr
+  integer, intent(in) :: n
+  double precision, intent(inout) :: ChillingHours, ThermalTime
+  ! Local variables
+  double precision :: ChillingHours_day, Tair_deWit(n), deWit
+  integer :: i
+  ! Calculate diurnal time series of air temperature assuming sine wave variation
+  Tair_deWit = deWit(DayLength, TmaxDay, TminDay, n)
+  ! Accumulate chilling hours if below the requirement
+  if(ChillingHours < ColdRequirement) Then
+    ! Accumulate chilling hours during the dat
+    ChillingHours_day = 0
+    Do i = 1, n
+        if(Tair_deWit(i) > 0.0 .AND. Tair_deWit(i) .LE. Phen_T0) Then
+            ChillingHours_day = ChillingHours_day + Tair_deWit(i)/Phen_T0*24.0/n
+        else if (Tair_deWit(i) .LE. Phen_Tx) Then
+            ChillingHours_day = ChillingHours_day + (1.0 - (Tair_deWit(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/n
+        else if (Tair_deWit(i) > Phen_Tx) Then
+            ChillingHours_day = ChillingHours_day + Phen_a*24.0/n
+        else
+            ChillingHours_day = ChillingHours_day
+        end if
+    End Do
+    ! Add chilling hours to the total but not that it can never be negative (i.e. cannot compensate what has not been accumulated)
+    ChillingHours = max(ChillingHours + ChillingHours_day, 0.0)
+    ! If we have accumulated enough chilling hours, we move start accumulating thermal time
+    ! Note that the tbase for flowering and growth development are different
+    ! Sine wave temperature generates the same average as the arithmetic mean from max and min
+  else if(ChillingHours > ColdRequirement .AND. ThermalTime < ThermalTimeRequirementFl) Then
+      ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFl, 0.0)
+  else if(ChillingHours > ColdRequirement .AND. ThermalTime >= ThermalTimeRequirementFl .AND. ThermalTime < ThermalTimeRequirementFr) Then
+      ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFr, 0.0)
+  end if
+end subroutine thermal_time
