@@ -47,18 +47,18 @@ Implicit none
     	close(out_growth)
         CALL SUBERROR('ERROR: out_growth.dat does not exist', IFATAL,IOERROR)
     ENDIF
-    Write(out_growth, '(23(A14,3x))') 'Year','DOY','Leaf','Stem','Fine_roots','Coarse_roots','Fruits', &
+    Write(out_growth, '(24(A14,3x))') 'Year','DOY','Leaf','Stem','Fine_roots','Coarse_roots','Fruits', &
     'Reserves','Volume','LAI','Height','Radius_x','Radius_y', 'Assimilation','M.Respiration', 'Leaf_Loss', &
-    'Residues','Root_Loss','aPAR','PAR','Chilling','Thermal','Tavg'
+    'Root_Loss','aPAR','PAR','Chilling','Thermal','Tavg',"FStage","VStage"
 end subroutine read_growth_inputs
 
-subroutine write_growth_outputs(Year, DOY, Assimilation, RmD, aPAR, PAR, residues, root_loss, Tavg)
+subroutine write_growth_outputs(Year, DOY, Assimilation, RmD, aPAR, PAR, root_loss, Tavg, FruitStage, VegStage)
 USE maestcom, only: out_growth
 Implicit None
-integer, intent(in) :: Year, DOY
-double precision, intent(in) :: Assimilation, RmD, aPAR, residues, root_loss, Tavg
+integer, intent(in) :: Year, DOY, FruitStage, VegStage
+double precision, intent(in) :: Assimilation, RmD, aPAR, root_loss, Tavg
 real, intent(in) :: PAR
-	Write(out_growth, '(I2,3x,I3,2x,21(ES16.6E3,3x))') Year, DOY, Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry, Assimilation, RmD, Biomass_leaf2T, residues, root_loss, aPAR, PAR, ChillingHours, ThermalTime, Tavg
+	Write(out_growth, '(I2,3x,I3,2x,20(ES16.6E3,3x),I1,1X,I1,1X)') Year, DOY, Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_croots, Biomass_fruits, Reserves, Volume, LAI, H, Rx, Ry, Assimilation, RmD, Biomass_leaf2T, root_loss, aPAR, PAR, ChillingHours, ThermalTime, Tavg, FruitStage, VegStage
 end subroutine
 
 subroutine growth_finalize
