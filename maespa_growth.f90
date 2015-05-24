@@ -20,7 +20,7 @@ call read_growth_inputs
 IDAY = 0
 DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 
-! Determine phenological stage
+! Phenology
     DOY = mod(iday, 365) + 1
     Year = iday/365 + 1
 
@@ -40,16 +40,22 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         senescence = 0.0
     end if
 
-
     ! Calculate phenological stages with fixed dates
     If (PhenSim == 0) Then
-      call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage, &
-                           OptPrun, DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
-                           Biomass_leaf, Biomass_stem, Biomass_froots, Biomass_fruits, specific_leaf_area, &
-                           ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
+      call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
     ! Or based on thermal time and accumulation og chilling hours
+    Else
+      Call Calc_Phen_Sim(ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
     End If
-
+    ! Harvest and (optional) pruning
+    If (DOY == DOYHarvest) Then
+      Biomass_fruits = 0.0
+      if (OptPrun == 1) Then
+       Call Pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
+                    Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
+                    ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
+      End If
+    End If
 
 ! Override the arrays with dimensions of all the trees in the orchard
     RYTABLE1(1,:) = Ry ! Radius of green crown in y direction
@@ -66,8 +72,8 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! This is done after calling Maespa because we use the weather data read by Maespa
   If(PhenSim == 1) Then
     call thermal_time(DayLength, TmaxDay, TminDay, 100, ColdRequirement, ChillingHours, &
-                  Phen_T0, Phen_a, Phen_Tx, ThermalTimeRequirementFl, &
-                  Phen_TbFl, ThermalTimeRequirementFr, Phen_TbFr, ThermalTime)
+                  Phen_T0, Phen_a, Phen_Tx, TT1, &
+                  Phen_TbFl, TT1 + TT2 + TT3 + TT4, Phen_TbFr, ThermalTime)
   End If
 
 ! Carbon allocation when using fixed phenology
@@ -76,6 +82,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                        Allocation_froots, Allocation_croots, Allocation_reserves, &
                        reallocation, PC_leaf, PC_stem, PC_froots, PC_croots, PCfr, PCoil, &
                        PV_fruits, PVfr, PVoil, Age, Adult)
+! Carbon allocation when using simulated phenology
   Else
     Call Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf, Allocation_stem, &
                        Allocation_froots, Allocation_croots, Allocation_reserves, &
@@ -236,6 +243,9 @@ subroutine thermal_time(DayLength, TmaxDay, TminDay, n, ColdRequirement, Chillin
       ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFl, 0.0)
   else if(ChillingHours > ColdRequirement .AND. ThermalTime >= ThermalTimeRequirementFl .AND. ThermalTime < ThermalTimeRequirementFr) Then
       ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFr, 0.0)
+  else if(ChillingHours > ColdRequirement .AND. ThermalTime >= ThermalTimeRequirementFr) Then
+      ChillingHours = 0.0
+      ThermalTime = 0.0
   end if
 end subroutine thermal_time
 
@@ -446,14 +456,32 @@ subroutine Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStag
       PhenStage = 4
   else if(DOY == DOYPhen4) Then
       PhenStage = 1
-      Biomass_fruits = 0.0 ! Harvest
-      If (OptPrun == 1) Then
-        Call Pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
-                     Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
-                     ActiveWood, Biomass_leaf0, Biomass_leaf1, Biomass_leaf2)
-      End If
   else if (DOY .GT. DOYPhen4) then
       PhenStage = 1
   end if
 
 end subroutine Calc_Phen_Fixed
+
+subroutine Calc_Phen_Sim(ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
+  ! Arguments
+  double precision, intent(in) :: ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement
+  integer, intent(out) :: FruitStage, VegStage
+
+  If(ChillingHours < ColdRequirement) Then
+    FruitStage = 1 ! Flowering buds accumulating cold
+  Else If(ThermalTime < TT1) Then
+    FruitStage = 2 ! Flowering buds accumulating temperature
+  Else If(ThermalTime < TT2) Then
+    FruitStage = 3 ! Flowering period
+  Else If(ThermalTime < TT3) Then
+    FruitStage = 4 ! Fruits are growing (no oil accumulation yet)
+  Else If(ThermalTime < TT4) Then
+    FruitStage = 5 ! Fruits are growing (oil is being accumulated)
+  End If
+
+  If(DOY >= DOYwinter1 .OR. DOY <= DOYwinter2) Then
+    VegStage = 0
+  Else
+    VegStage = 1
+  End If
+End subroutine Calc_Phen_Sim
