@@ -13,8 +13,12 @@ OBJS =	growth_module.o default_conditions.o switches.o getmet.o maindeclarations
         inout.o  maespa_growth.o maespa.o maestcom.o metcom.o physiol.o radn.o \
 	unstor.o utils.o watbal.o
 
+LIBS =	
+
+INCLS = 
+
 # In Windows we have to use fullpath (even though gfortran is recognized by the command line, make cannot find it!)
-F90 = gfortran
+F90 = D:\\UserData\\moral005\\Rtools\\gcc-4.6.3\\bin\\gfortran.exe
 
 FFLAGS = -g -fbounds-check -finit-local-zero -Wuninitialized -ftrapv -ffree-form -ffree-line-length-none -O3
 
@@ -30,7 +34,7 @@ clean:
 
 .f90.o:
 	$(F90) $(FFLAGS) -c $<
-
+	
 default_conditions.o: switches.o
 getmet.o: maestcom.o metcom.o switches.o
 maindeclarations.o: maestcom.o
