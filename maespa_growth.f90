@@ -3,9 +3,9 @@ Use Initialize, only: maespa_initialize, maespa_finalize
 USE maindeclarations, only: istart, iday, iend, mflag, nstep, RYTABLE1, RXTABLE1, RZTABLE1, FOLTABLE1, ZBCTABLE1, totRespf, totCO2, TAIR, KHRS, WSOILMETHOD, ISMAESPA, TDYAB, RADABV, SPERHR ! This contains all variables that were defined in the program unit of maespa.
 Use growth_module ! This contains parameters and state variables
 Implicit None
-Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss
+Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss, TotFruitMax
 double precision, dimension(100) :: Tair_deWit
-Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage, FlowerStage
+Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage, FlowerStage, PreviousFlowerStage
 double precision, parameter :: pi = 3.14159265359
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
@@ -69,6 +69,9 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
                   Phen_TbFl, TT1 + TT2 + TT3 + TT4, Phen_TbFr, ThermalTimeFlower, ThermalTimeFruit)
   End If
 
+  ! Store previous flowering stage to detect when flowering occurs
+  PreviousFlowerStage = FlowerStage
+
   ! Calculate phenological stages with fixed dates
   If (PhenSim == 0) Then
     call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
@@ -77,6 +80,10 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Call Calc_Phen_Sim(DOY, (TmaxDay + TminDay)/2.0, Phen_TbFr, ThermalTimeFlower, ThermalTimeFruit, &
                             ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, &
                             DOYwinter1, DOYwinter2, FlowerStage, FruitStage, VegStage)
+  End If
+
+  If (PreviousFlowerStage == 2 .AND. FlowerStage == 3 .AND. FruitOpt == 1) Then
+    TotFruitMax = FruitMax*Volume/(d_alley*d_row)
   End If
 
 ! Carbon allocation when using fixed phenology
@@ -128,9 +135,9 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Update the state variables
 ! Fruit biomass (g dm (m ground)-2)
 ! It may optionally be sink-limited (FruitOpt == 1) which alters the allocation coefficients (the rest will increase)
-    if(FruitOpt == 1 .AND. Pool*Allocation_fruits*PV_fruits > FruitMax) then
-      Biomass_fruits = Biomass_fruits + FruitMax
-      Allocation_fruits = (FruitMax/PV_fruits)/Pool
+    if(FruitOpt == 1 .AND. Pool*Allocation_fruits*PV_fruits > TotFruitMax) then
+      Biomass_fruits = Biomass_fruits + TotFruitMax
+      Allocation_fruits = (TotFruitMax/PV_fruits)/Pool
       Allocation_leaf = PC_leaf*(1.0 - Allocation_fruits)
       Allocation_stem = PC_stem*(1.0 - Allocation_fruits)
       Allocation_froots = PC_froots*(1.0 - Allocation_fruits)
