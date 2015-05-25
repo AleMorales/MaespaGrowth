@@ -235,18 +235,18 @@ subroutine thermal_time(DOY, DayLength, TmaxDay, TminDay, n, ColdRequirement, Ch
     ! Accumulate chilling hours during the day
     ChillingHours_day = 0
     Do i = 1, n
-        if(Tair_deWit(i) > 0.0 .AND. Tair_deWit(i) .LE. Phen_T0) Then
-            ChillingHours_day = ChillingHours_day + Tair_deWit(i)/Phen_T0*24.0/n
+        if(Tair_deWit(i) > 0.0 .AND. Tair_deWit(i) <= Phen_T0) Then
+            ChillingHours_day = ChillingHours_day + Tair_deWit(i)/Phen_T0*24.0/real(n)
         else if (Tair_deWit(i) .LE. Phen_Tx) Then
-            ChillingHours_day = ChillingHours_day + (1.0 - (Tair_deWit(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/n
+            ChillingHours_day = ChillingHours_day + (1.0 - (Tair_deWit(i) - Phen_T0)*(1.0 - Phen_a)/(Phen_Tx - Phen_T0))*24.0/real(n)
         else if (Tair_deWit(i) > Phen_Tx) Then
-            ChillingHours_day = ChillingHours_day + Phen_a*24.0/n
+            ChillingHours_day = ChillingHours_day + Phen_a*24.0/real(n)
         else
             ChillingHours_day = ChillingHours_day
         end if
     End Do
-    ! Add chilling hours to the total but not that it can never be negative (i.e. cannot compensate what has not been accumulated)
-    ChillingHours = max(ChillingHours + ChillingHours_day, 0.0)
+    ! Add Chilling hours
+    ChillingHours = ChillingHours + max(ChillingHours_day, 0.0)
   End If
   ! Accumulate thermal time prior to flowering after vernalization
   If(ChillingHours > ColdRequirement .AND. ThermalTimeFlower < ThermalTimeRequirementFl) Then
