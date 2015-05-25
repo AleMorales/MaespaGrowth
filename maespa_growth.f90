@@ -103,26 +103,27 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
 ! Pool of assimilates produce on a given day (g C (m2 ground)-2)
     Assimilation = (totCO2(1) + totRespf(1))/d_alley/d_row*12.0
 
+! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
+    RmD = sum((Biomass_leaf*RmRef_leaf + min(Biomass_stem, Biomass_leaf*ActiveWood)*RmRef_stem + Biomass_froots*RmRef_froots + min(Biomass_croots, Biomass_froots*ActiveWood)*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS
+
+! Optionally, limit the maximum daily rate of photosynthesis. Note that allocation_reserves is either 0 or 1.
+! Use intermediate value to avoid floating-point precision problems
+    If (WinterOpt == 1 .AND. Allocation_reserves > 0.5 .AND. Assimilation > RmD*MaxPhotos) Then
+        Assimilation = RmD*MaxPhotos
+    end if
+
 ! Management of reserves and creation of daily pool (g C (m ground)-2)
 ! Reserve management depends on how we calculate phenology
   if(PhenSim == 0 .AND. PhenStage == 1) ReservesT = Reserves
   If(PhenSim == 0 .AND. DOY >= DOYPhen1 .AND. DOY <=  DOYPhen2) Then
     Pool = Assimilation + reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
     Reserves = Reserves - reallocation*ReservesT/(DOYPhen2 - DOYPhen1)*CCres
-  Else If(PhenSim == 1 .AND. reallocation > 0) Then
+  Else If(PhenSim == 1 .AND. reallocation > 0.5) Then
     Pool = Assimilation + Reserves*Kreallocation
     Reserves = Reserves*(1.0 - Kreallocation)
   Else
     Pool = Assimilation
   End If
-
-! Maintenance respiration. ! Average maintenance respiration on a daily basis (g C (m2 ground)-2)
-    RmD = sum((Biomass_leaf*RmRef_leaf + min(Biomass_stem, Biomass_leaf*ActiveWood)*RmRef_stem + Biomass_froots*RmRef_froots + min(Biomass_croots, Biomass_froots*ActiveWood)*RmRef_croots + Biomass_fruits*RmRef_fruits + Reserves*RmRef_reserves)*Q10**((TAIR(1:KHRS) - 25.0)/10.0))*24.0/KHRS
-
-! Optionally, limit the maximum daily rate of photosynthesis
-    If (WinterOpt == 1 .AND. PhenStage == 1 .AND. Assimilation > RmD*MaxPhotos) Then
-        Assimilation = RmD*MaxPhotos
-    end if
 
 ! Source-limited maintenance respiration
     If(RmD > Pool) then
