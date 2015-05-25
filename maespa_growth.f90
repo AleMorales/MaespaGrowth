@@ -5,14 +5,8 @@ Use growth_module ! This contains parameters and state variables
 Implicit None
 Double precision :: Assimilation, Pool, Allocation_leaf, Allocation_stem, Allocation_froots, Allocation_croots, Allocation_fruits, Allocation_reserves, PC_fruits, PV_fruits, reallocation, Tf, RmD, senescence, ratio_leaf_stem, LADv, cohort0, cohort1, cohort2, ChillingHours_day, ratio_leaf_froots, root_loss
 double precision, dimension(100) :: Tair_deWit
-Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage
+Integer          :: Year, Doy, PhenStage, i, FruitStage, VegStage, FlowerStage
 double precision, parameter :: pi = 3.14159265359
-
-! Initializde some variables
-ChillingHours = 0.0
-ThermalTime = 0.0
-FruitStage = 1
-VegStage = 0
 
 ! This reads all the input files and initializes all arrays. It corresponds to the all the code that appear before the daily loop in maespa
 call maespa_initialize
@@ -45,21 +39,10 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
         senescence = 0.0
     end if
 
-    ! Calculate phenological stages with fixed dates
-    If (PhenSim == 0) Then
-      call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
-    ! Or based on thermal time and accumulation og chilling hours
-    Else
-      Call Calc_Phen_Sim(DOY, ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
-    End If
     ! Harvest and (optional) pruning
     If (DOY == DOYHarvest) Then
       Biomass_fruits = 0.0
-      If(PhenSim == 1 .AND. FruitStage > 1) Then
-        FruitStage = 1
-        ChillingHours = 0.0
-        ThermalTime = 0.0
-      End If
+      ThermalTimeFruit = 0.0
       if (OptPrun == 1) Then
        Call Pruning(DensOpt, H, Hmax, Rx, Ry, Volume, cp, D_row, D_alley, LAI, LAD, &
                     Biomass_leaf, Biomass_stem, Biomass_froots, specific_leaf_area, &
@@ -83,7 +66,17 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
   If(PhenSim == 1) Then
     call thermal_time(DOY, DayLength, TmaxDay, TminDay, 100, ColdRequirement, ChillingHours, &
                   Phen_T0, Phen_a, Phen_Tx, TT1, &
-                  Phen_TbFl, TT1 + TT2 + TT3 + TT4, Phen_TbFr, ThermalTime)
+                  Phen_TbFl, TT1 + TT2 + TT3 + TT4, Phen_TbFr, ThermalTimeFlower, ThermalTimeFruit)
+  End If
+
+  ! Calculate phenological stages with fixed dates
+  If (PhenSim == 0) Then
+    call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
+  ! Or based on thermal time and accumulation og chilling hours
+  Else
+    Call Calc_Phen_Sim(DOY, (TmaxDay + TminDay)/2.0, Phen_TbFr, ThermalTimeFlower, ThermalTimeFruit, &
+                            ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, &
+                            DOYwinter1, DOYwinter2, FlowerStage, FruitStage, VegStage)
   End If
 
 ! Carbon allocation when using fixed phenology
@@ -175,7 +168,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     Biomass_croots = Biomass_croots + Pool*Allocation_croots*PV_croots
     Reserves = Reserves + Pool*Allocation_reserves*PVres
 ! Write state variables and fluxes to the output
-    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, root_loss, (TminDay + TmaxDay)/2.0, FruitStage, VegStage)
+    Call  write_growth_outputs(Year, DOY, Assimilation, RmD, TDYAB(1,1)/d_alley/d_row, sum(RADABV(1:KHRS, 1))*SPERHR/1e6, root_loss, (TminDay + TmaxDay)/2.0, FlowerStage, FruitStage, VegStage)
 
 ! Proceed to the next step. Borrowed from the original daily loop of maespa
     IDAY = IDAY + NSTEP
@@ -219,20 +212,26 @@ End Subroutine deWit
 
 subroutine thermal_time(DOY, DayLength, TmaxDay, TminDay, n, ColdRequirement, ChillingHours, &
                         Phen_T0, Phen_a, Phen_Tx, ThermalTimeRequirementFl, &
-                        Phen_TbFl, ThermalTimeRequirementFr, Phen_TbFr, ThermalTime)
+                        Phen_TbFl, ThermalTimeRequirementFr, Phen_TbFr, ThermalTimeFlower, ThermalTimeFruit)
+  Use growth_module, only: DOYHarvest
   Implicit None
   ! Arguments
   double precision, intent(in) :: DayLength, TmaxDay, TminDay, ColdRequirement, Phen_T0, Phen_a, Phen_Tx,&
                                   ThermalTimeRequirementFl, ThermalTimeRequirementFr, Phen_TbFl, Phen_TbFr
   integer, intent(in) :: n, DOY
-  double precision, intent(inout) :: ChillingHours, ThermalTime
+  double precision, intent(inout) :: ChillingHours, ThermalTimeFlower, ThermalTimeFruit
   ! Local variables
   double precision :: ChillingHours_day, Tair_deWit(n)
   integer :: i
   ! Calculate diurnal time series of air temperature assuming sine wave variation
   Call deWit(DayLength, TmaxDay, TminDay, n, Tair_deWit)
-  ! Accumulate chilling hours if below the requirement (but only after beginning of October)
-  if(ChillingHours < ColdRequirement .AND. (DOY >= 274 .OR. DOY <= 45)) Then
+  ! Chilling hours are reset on DOY 274
+  If(DOY == 274) Then
+    ChillingHours = 0.0
+    ThermalTimeFlower = 0.0
+  End If
+  ! Accumulate chilling hours if below the requirement (but only after beginning of October and during winter)
+  if(ChillingHours < ColdRequirement) Then
     ! Accumulate chilling hours during the day
     ChillingHours_day = 0
     Do i = 1, n
@@ -248,17 +247,18 @@ subroutine thermal_time(DOY, DayLength, TmaxDay, TminDay, n, ColdRequirement, Ch
     End Do
     ! Add chilling hours to the total but not that it can never be negative (i.e. cannot compensate what has not been accumulated)
     ChillingHours = max(ChillingHours + ChillingHours_day, 0.0)
-    ! If we have accumulated enough chilling hours, we move start accumulating thermal time
-    ! Note that the tbase for flowering and growth development are different
-    ! Sine wave temperature generates the same average as the arithmetic mean from max and min
-  else if(ChillingHours > ColdRequirement .AND. ThermalTime < ThermalTimeRequirementFl) Then
-      ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFl, 0.0)
-  else if(ChillingHours > ColdRequirement .AND. ThermalTime >= ThermalTimeRequirementFl .AND. ThermalTime < ThermalTimeRequirementFr) Then
-      ThermalTime = ThermalTime + max((TminDay + TmaxDay)/2.0 - Phen_TbFr, 0.0)
-  else if(ChillingHours > ColdRequirement .AND. ThermalTime >= ThermalTimeRequirementFr) Then
-      ChillingHours = 0.0
-      ThermalTime = 0.0
-  end if
+  End If
+  ! Accumulate thermal time prior to flowering after vernalization
+  If(ChillingHours > ColdRequirement .AND. ThermalTimeFlower < ThermalTimeRequirementFl) Then
+      ThermalTimeFlower = ThermalTimeFlower + max((TminDay + TmaxDay)/2.0 - Phen_TbFl, 0.0)
+  End If
+  ! Accumulate thermal time for the fruits. Note that after DOY 274 we start accumulate CH for flowers but we need to continue
+  ! With thermal time accumulation for the fruits
+  If((ChillingHours > ColdRequirement .AND. ThermalTimeFlower > ThermalTimeRequirementFl) .OR. (DOY >= 274 .AND. DOY < DOYHarvest)) Then
+    ThermalTimeFruit = ThermalTimeFruit + max((TminDay + TmaxDay)/2.0 - Phen_TbFr, 0.0)
+  Else
+    ThermalTimeFruit = 0.0
+  End If
 end subroutine thermal_time
 
 
@@ -346,10 +346,10 @@ subroutine Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf
                                    reallocation, PV_fruits
 
   ! Fruit growth
-  If(Age >= Adult .AND. FruitStage == 4) Then
+  If(Age >= Adult .AND. FruitStage == 2) Then
       Allocation_fruits  = PCfr
       PV_fruits = PVfr
-  Else If(Age >= Adult .AND. FruitStage == 5) Then
+  Else If(Age >= Adult .AND. FruitStage == 3) Then
       Allocation_fruits  = PCoil
       PV_fruits = PVoil
   Else
@@ -366,7 +366,7 @@ subroutine Calc_PC_Phen(FruitStage, VegStage, Allocation_fruits, Allocation_leaf
     Allocation_reserves = 0.0
     reallocation        = 1.0
   ! Reserve accumulation (i.e. winter) only when neither fruit nor veg grow
-  Else If(FruitStage <= 3) Then
+Else If(FruitStage <= 1) Then
     Allocation_leaf = 0.0
     Allocation_stem = 0.0
     Allocation_froots = 0.0
@@ -469,25 +469,33 @@ subroutine Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStag
 
 end subroutine Calc_Phen_Fixed
 
-subroutine Calc_Phen_Sim(DOY, ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, DOYwinter1, DOYwinter2, FruitStage, VegStage)
+subroutine Calc_Phen_Sim(DOY, Tavg, Tbase, ThermalTimeFlower, ThermalTimeFruit, &
+                        ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, &
+                        DOYwinter1, DOYwinter2, FlowerStage, FruitStage, VegStage)
+  Use growth_module, only: DOYHarvest
   Implicit None
   ! Arguments
-  double precision, intent(in) :: ThermalTime, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement
-  integer, intent(out) :: DOYwinter1, DOYwinter2, FruitStage, VegStage, DOY
+  double precision, intent(in) :: ThermalTimeFlower, ThermalTimeFruit, ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, Tavg, Tbase
+  integer, intent(out) :: DOYwinter1, DOYwinter2, FlowerStage, FruitStage, VegStage, DOY
 
   If(ChillingHours < ColdRequirement) Then
-    FruitStage = 1 ! Flowering buds accumulating cold
-  Else If(ThermalTime < TT1) Then
-    FruitStage = 2 ! Flowering buds accumulating temperature
-  Else If(ThermalTime < TT2 + TT1) Then
-    FruitStage = 3 ! Flowering period
-  Else If(ThermalTime < TT3 + TT2 + TT1) Then
-    FruitStage = 4 ! Fruits are growing (no oil accumulation yet)
-  Else If(ThermalTime < TT4 + TT3 + TT2 + TT1) Then
-    FruitStage = 5 ! Fruits are growing (oil is being accumulated)
+    FlowerStage = 1 ! Flowering buds accumulating cold
+  Else If(ThermalTimeFlower < TT1) Then
+    FlowerStage = 2 ! Flowering buds accumulating temperature
+  Else If(ThermalTimeFlower > TT1) Then
+    FlowerStage = 3 ! Buds are generating flowers
   End If
-
-  If(DOY >= DOYwinter1 .OR. DOY <= DOYwinter2) Then
+  If(DOY >= DOYHarvest) Then
+    FruitStage = 0
+  Else If(ThermalTimeFruit < TT2) Then
+    FruitStage = 1 ! Flowering period
+  Else If(ThermalTimeFruit < TT3 + TT2) Then
+    FruitStage = 2 ! Fruits are growing (no oil accumulation yet)
+  Else If(ThermalTimeFruit < TT4 + TT3 + TT2) Then
+    FruitStage = 3 ! Fruits are growing (oil is being accumulated)
+  End If
+  ! Vegetative growth occurs as long as there is sufficient temperature
+  If(Tavg <= Tbase) Then
     VegStage = 0
   Else
     VegStage = 1
