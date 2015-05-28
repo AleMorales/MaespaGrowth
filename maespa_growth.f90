@@ -77,7 +77,7 @@ DO WHILE (ISTART + IDAY <= IEND) ! start daily loop
     call Calc_Phen_Fixed(DOY, DOYPhen1, DOYPhen2, DOYPhen3, DOYPhen4, PhenStage)
   ! Or based on thermal time and accumulation og chilling hours
   Else
-    Call Calc_Phen_Sim(DOY, (TmaxDay + TminDay)/2.0, Phen_TbFr, ThermalTimeFlower, ThermalTimeFruit, &
+    Call Calc_Phen_Sim(DOY, (TmaxDay + TminDay)/2.0, TbaseWinter, ThermalTimeFlower, ThermalTimeFruit, &
                             ChillingHours, TT1, TT2, TT3, TT4, ColdRequirement, &
                             DOYwinter1, DOYwinter2, FlowerStage, FruitStage, VegStage)
   End If
